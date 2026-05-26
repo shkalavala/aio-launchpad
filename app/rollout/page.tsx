@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { Suspense, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, ChevronRight, Target } from "lucide-react";
@@ -39,6 +39,14 @@ import { EmptyFleetCard } from "@/components/shell/EmptyFleetCard";
  * AIO version, site, selector. Operations IT persona only. No rollback.
  */
 export default function RolloutPage() {
+  return (
+    <Suspense fallback={null}>
+      <RolloutPageInner />
+    </Suspense>
+  );
+}
+
+function RolloutPageInner() {
   const fleet = useFleet();
   const searchParams = useSearchParams();
   const siteParam = searchParams.get("site");

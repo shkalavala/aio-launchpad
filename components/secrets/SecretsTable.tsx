@@ -88,7 +88,10 @@ export function SecretsTable({ siteName, entries, fixtureNames, hasOverlay, onCh
     // If this row has been edited this session (overlay), prioritise that signal.
     if (hasOverlay && !fixtureNames.has(entry.secretName)) return "pending";
     // Otherwise surface the actual sync status from the fixture (drift / error /
-    // missing-in-kv / syncing all need to be visible to the operator).
+    // missing-in-kv / syncing all need to be visible to the operator). The
+    // fixture-only "never" state (declared but never synced) renders as
+    // pending in the UI — the SecretStatus union doesn't carry it through.
+    if (entry.syncStatus === "never") return "pending";
     if (entry.syncStatus) return entry.syncStatus;
     return "synced";
   };

@@ -473,7 +473,7 @@ function describeRings(rings: Ring[], strategyId: string): string {
   if (rings.length === 0) return "";
   if (rings.length === 1) return "Single ring";
   // Match the canonical labels used in fixtures: "Canary → Wave 1 → Wave 2".
-  const labels = rings.map((r, i) => r.label || (i === 0 ? "Canary" : `Wave ${i}`));
+  const labels = rings.map((r, i) => r.name || (i === 0 ? "Canary" : `Wave ${i}`));
   const joined = labels.join(" → ");
   const strategy = RING_STRATEGIES.find((s) => s.id === strategyId);
   return strategy ? `${strategy.name} · ${joined}` : joined;
