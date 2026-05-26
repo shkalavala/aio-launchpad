@@ -4,8 +4,12 @@ Living list of things we *could* build next. Not a roadmap — order is set per 
 
 ## Next up
 
-1. **Multi-persona walkthrough audit.** Walk every screen four times — once each as Operations IT, Site OT, Central IT, Edge System IT — capturing what resonates, what doesn't, what could change, what *should* change. Output to `private/research/walkthrough-<date>.md`. Feeds the next round of "harden one persona path" and "end-to-end flow fixes."
-2. **Harden one persona path.** After the audit, pick Operations IT doing a routine release-pin upgrade (e.g. 2603 → 2604) and make that single flow bulletproof; ignore everything else.
+_(empty — pick from Candidates below)_
+
+## Done
+
+- **Multi-persona walkthrough audit.** Four-persona screen walk captured in [private/research/walkthrough-2026-05-26.md](private/research/walkthrough-2026-05-26.md). Completed 2026-05-26.
+- **Harden one persona path (Ops IT release-pin upgrade).** Rollout pipeline (rings, gates, pause/continue, health-verify, blast-radius) shipped and verified end-to-end. Completed 2026-05-26.
 
 ## Candidates (unranked)
 

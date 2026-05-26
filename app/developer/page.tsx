@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ChevronRight,
@@ -16,15 +16,10 @@ import {
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 import {
-  DEFAULT_MANIFEST_PATH,
-  MANIFEST_REPO,
-  MANIFEST_TREE,
-  getManifestByPath,
-  githubEditUrl,
-  githubFileUrl,
   type ManifestFile,
   type ManifestNodeKind,
 } from "@/lib/fixtures/manifests";
+import { useManifestSource, LIVE_HELP, type ManifestSourceState } from "@/lib/manifestSource";
 import { PIPELINE_RUNS, pipelineRunUrl, type PipelineRun, type PipelineStatus } from "@/lib/fixtures/pipeline";
 
 /**
@@ -48,11 +43,32 @@ import { PIPELINE_RUNS, pipelineRunUrl, type PipelineRun, type PipelineStatus } 
  * (manifest repo is truth via PR), no "deploy now" button, no rollback.
  */
 export default function DeveloperPage() {
-  const [selectedPath, setSelectedPath] = useState<string>(DEFAULT_MANIFEST_PATH);
+  const src = useManifestSource();
+  const { files, tree, defaultPath, repo, source, loading, error } = src;
+
+  const getByPath = (p: string) => files.find((f) => f.path === p);
+
+  const [selectedPath, setSelectedPath] = useState<string>(defaultPath);
+  const userPickedRef = useRef(false);
+
+  // When live data finishes loading, snap selection to the new defaultPath
+  // unless the user has already navigated somewhere themselves.
+  useEffect(() => {
+    if (userPickedRef.current) return;
+    if (!defaultPath) return;
+    setSelectedPath(defaultPath);
+  }, [defaultPath]);
+
   const selected = useMemo(
-    () => getManifestByPath(selectedPath) ?? MANIFEST_TREE[0].files[0],
-    [selectedPath],
+    () => getByPath(selectedPath) ?? tree[0]?.files[0] ?? files[0],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedPath, files, tree],
   );
+
+  const onSelect = (p: string) => {
+    userPickedRef.current = true;
+    setSelectedPath(p);
+  };
 
   // Allow the parsed-fields "inherits" link to jump to the parent template
   // without prop-drilling a setter into the nested viewer.
@@ -61,13 +77,15 @@ export default function DeveloperPage() {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<{ path: string }>).detail;
       if (!detail?.path) return;
-      if (getManifestByPath(detail.path)) {
+      if (getByPath(detail.path)) {
+        userPickedRef.current = true;
         setSelectedPath(detail.path);
       }
     };
     window.addEventListener("devscreen:select", handler as EventListener);
     return () => window.removeEventListener("devscreen:select", handler as EventListener);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files]);
 
   return (
     <section className="flex h-full min-w-0 flex-col">
@@ -91,25 +109,37 @@ export default function DeveloperPage() {
             <div className="flex items-center justify-end gap-1 font-mono text-[11px]">
               <GitBranch className="h-3 w-3" />
               <span className="text-fg">
-                {MANIFEST_REPO.org}/{MANIFEST_REPO.repo}
+                {repo.owner}/{repo.repo}
               </span>
               <span>·</span>
-              <span>{MANIFEST_REPO.defaultBranch}</span>
+              <span>{repo.branch}</span>
             </div>
             <div className="font-mono text-[11px]">
-              {MANIFEST_TREE.reduce((n, g) => n + g.files.length, 0)} files · {PIPELINE_RUNS.length} recent runs
+              {tree.reduce((n, g) => n + g.files.length, 0)} files · {PIPELINE_RUNS.length} recent runs
             </div>
+            <SourceBadge source={source} loading={loading} error={error} />
           </div>
         </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto bg-bg px-4 py-4">
         <div className="mx-auto grid max-w-[1400px] grid-cols-1 gap-4 lg:grid-cols-[260px_1fr_320px]">
-          <FileTree selectedPath={selected.path} onSelect={setSelectedPath} />
-          <ManifestViewer file={selected} />
+          <FileTree tree={tree} selectedPath={selected?.path ?? ""} onSelect={onSelect} />
+          {selected ? (
+            <ManifestViewer
+              file={selected}
+              repo={repo}
+              githubFileUrl={src.githubFileUrl}
+              githubEditUrl={src.githubEditUrl}
+            />
+          ) : (
+            <div className="rounded border border-border bg-surface p-6 text-[12px] text-fg-muted">
+              {loading ? "Loading manifests from GitHub…" : "No manifest files available."}
+            </div>
+          )}
           <div className="flex flex-col gap-4">
-            <PipelinePanel selected={selected} />
-            <ParsedFields file={selected} />
+            {selected && <PipelinePanel selected={selected} />}
+            {selected && <ParsedFields file={selected} />}
           </div>
         </div>
       </div>
@@ -119,10 +149,53 @@ export default function DeveloperPage() {
 
 // ── File tree ───────────────────────────────────────────────────────────────
 
+function SourceBadge({
+  source,
+  loading,
+  error,
+}: {
+  source: ManifestSourceState["source"];
+  loading: boolean;
+  error: string | null;
+}) {
+  if (source === "fixture") {
+    return (
+      <div
+        className="mt-1 font-mono text-[10px] uppercase tracking-wide text-fg-subtle"
+        title="Read from inline fixture. Append ?source=live to fetch live YAML from GitHub."
+      >
+        source: fixture
+      </div>
+    );
+  }
+  let tone: string;
+  let text: string;
+  if (loading) {
+    tone = "text-accent";
+    text = "source: live · loading…";
+  } else if (error) {
+    tone = "text-danger";
+    text = `source: live · error (${error.slice(0, 60)})`;
+  } else {
+    tone = "text-success";
+    text = "source: live · github.com";
+  }
+  return (
+    <div
+      className={cn("mt-1 font-mono text-[10px] uppercase tracking-wide", tone)}
+      title={LIVE_HELP}
+    >
+      {text}
+    </div>
+  );
+}
+
 function FileTree({
+  tree,
   selectedPath,
   onSelect,
 }: {
+  tree: ManifestSourceState["tree"];
   selectedPath: string;
   onSelect: (p: string) => void;
 }) {
@@ -134,7 +207,7 @@ function FileTree({
         </h2>
       </header>
       <div className="p-2">
-        {MANIFEST_TREE.map((group) => (
+        {tree.map((group) => (
           <div key={group.folder} className="mb-2 last:mb-0">
             <div className="flex items-center gap-1 px-1 pb-1 text-[11px] font-semibold uppercase tracking-wide text-fg-subtle">
               <ChevronRight className="h-3 w-3" />
@@ -186,7 +259,17 @@ function KindBadge({ kind }: { kind: ManifestNodeKind }) {
 
 // ── YAML viewer ─────────────────────────────────────────────────────────────
 
-function ManifestViewer({ file }: { file: ManifestFile }) {
+function ManifestViewer({
+  file,
+  repo,
+  githubFileUrl,
+  githubEditUrl,
+}: {
+  file: ManifestFile;
+  repo: ManifestSourceState["repo"];
+  githubFileUrl: (p: string) => string;
+  githubEditUrl: (p: string) => string;
+}) {
   const onCopy = () => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
       navigator.clipboard.writeText(file.yaml).catch(() => {});
@@ -236,7 +319,7 @@ function ManifestViewer({ file }: { file: ManifestFile }) {
         <GitPullRequest className="mt-px h-3 w-3 shrink-0 text-fg-subtle" />
         <span>
           This file is the source of truth. Launchpad never edits manifests in place — propose an
-          edit to open a PR in <code className="font-mono">{MANIFEST_REPO.org}/{MANIFEST_REPO.repo}</code>.
+          edit to open a PR in <code className="font-mono">{repo.owner}/{repo.repo}</code>.
           The Scale Kit pipeline applies the merged change to the fleet.
         </span>
       </div>
