@@ -1,0 +1,14 @@
+apiVersion: siteops/v1
+kind: Site
+name: stockholm-assembly-prod
+inherits: shared/stockholm-assembly.yaml
+subscription: "00000000-0000-0000-0000-000000000000"
+resourceGroup: rg-stockholm-assembly-prod
+
+labels:
+  environment: prod
+
+parameters:
+  aioInstanceName: stockholm-assembly-prod-aio
+  envPrefix: ""
+  excludeEndpoints: []

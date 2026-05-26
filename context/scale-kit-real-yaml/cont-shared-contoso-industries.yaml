@@ -1,0 +1,7 @@
+# Enterprise-level defaults shared across all Contoso Industries sites.
+apiVersion: siteops/v1
+kind: SiteTemplate
+name: contoso-industries
+
+labels:
+  enterprise: contoso-industries

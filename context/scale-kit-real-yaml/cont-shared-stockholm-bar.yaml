@@ -1,0 +1,23 @@
+# Stockholm Bar — CNC lathes and surface grinding.
+apiVersion: siteops/v1
+kind: SiteTemplate
+name: stockholm-bar
+inherits: stockholm.yaml
+
+labels:
+  plant: bar
+
+parameters:
+  eventHubNamespace: stockholm-bar-eventhubs
+  dataflowManagedIdentity:
+    clientId: 33333333-3333-3333-3333-333333333333
+    tenantId: 22222222-2222-2222-2222-222222222222
+  networking:
+    vnetResourceGroup: rg-network-stockholm
+    vnetName: vnet-stockholm-bar
+    subnetName: snet-iot
+    privateDnsZoneIds: []
+
+properties:
+  deployOptions:
+    includeDataflows: false

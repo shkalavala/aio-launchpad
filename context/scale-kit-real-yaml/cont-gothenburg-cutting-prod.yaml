@@ -1,0 +1,14 @@
+apiVersion: siteops/v1
+kind: Site
+name: gothenburg-cutting-prod
+inherits: shared/gothenburg-cutting.yaml
+subscription: "00000000-0000-0000-0000-000000000000"
+resourceGroup: rg-gothenburg-cutting-prod
+
+labels:
+  environment: prod
+
+parameters:
+  aioInstanceName: gothenburg-cutting-prod-aio
+  envPrefix: ""
+  excludeEndpoints: []

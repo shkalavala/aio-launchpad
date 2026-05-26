@@ -1,0 +1,23 @@
+# Hamburg Assembly — hydraulic presses and resistance welding.
+apiVersion: siteops/v1
+kind: SiteTemplate
+name: hamburg-assembly
+inherits: hamburg.yaml
+
+labels:
+  plant: assembly
+
+parameters:
+  eventHubNamespace: hamburg-assembly-eventhubs
+  dataflowManagedIdentity:
+    clientId: 44444444-4444-4444-4444-444444444444
+    tenantId: 55555555-5555-5555-5555-555555555555
+  networking:
+    vnetResourceGroup: rg-network-hamburg
+    vnetName: vnet-hamburg-assembly
+    subnetName: snet-iot
+    privateDnsZoneIds: []
+
+properties:
+  deployOptions:
+    includeDataflows: true

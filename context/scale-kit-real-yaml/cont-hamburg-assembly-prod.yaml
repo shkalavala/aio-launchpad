@@ -1,0 +1,14 @@
+apiVersion: siteops/v1
+kind: Site
+name: hamburg-assembly-prod
+inherits: shared/hamburg-assembly.yaml
+subscription: "00000000-0000-0000-0000-000000000000"
+resourceGroup: rg-hamburg-assembly-prod
+
+labels:
+  environment: prod
+
+parameters:
+  aioInstanceName: hamburg-assembly-prod-aio
+  envPrefix: ""
+  excludeEndpoints: []

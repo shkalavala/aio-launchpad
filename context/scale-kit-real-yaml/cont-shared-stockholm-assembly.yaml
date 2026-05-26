@@ -1,0 +1,23 @@
+# Stockholm Assembly — assembly line stations and EOL testing.
+apiVersion: siteops/v1
+kind: SiteTemplate
+name: stockholm-assembly
+inherits: stockholm.yaml
+
+labels:
+  plant: assembly
+
+parameters:
+  eventHubNamespace: stockholm-assembly-eventhubs
+  dataflowManagedIdentity:
+    clientId: 11111111-1111-1111-1111-111111111111
+    tenantId: 22222222-2222-2222-2222-222222222222
+  networking:
+    vnetResourceGroup: rg-network-stockholm
+    vnetName: vnet-stockholm-assembly
+    subnetName: snet-iot
+    privateDnsZoneIds: []
+
+properties:
+  deployOptions:
+    includeDataflows: true

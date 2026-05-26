@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Azure-themed palette — Fluent 2 / Azure Portal inspired neutrals + accent blue */
+  --bg: #faf9f8;
+  --bg-subtle: #f3f2f1;
+  --bg-muted: #edebe9;
+  --bg-inverse: #201f1e;
+
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f8f8f8;
+
+  --border: #e1dfdd;
+  --border-strong: #c8c6c4;
+  --border-subtle: #edebe9;
+
+  --fg: #201f1e;
+  --fg-muted: #605e5c;
+  --fg-subtle: #8a8886;
+  --fg-inverse: #ffffff;
+
+  /* Azure accent: communication blue */
+  --accent: #0078d4;
+  --accent-hover: #106ebe;
+  --accent-pressed: #005a9e;
+  --accent-subtle: #deecf9;
+  --accent-fg: #ffffff;
+
+  --success: #107c10;
+  --success-subtle: #dff6dd;
+  --success-fg: #0e700e;
+
+  --warning: #c19c00;
+  --warning-subtle: #fff4ce;
+  --warning-fg: #8a6e00;
+
+  --danger: #a4262c;
+  --danger-subtle: #fde7e9;
+  --danger-fg: #a4262c;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family:
+    "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue",
+    sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Subtle focus ring matching Fluent */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}

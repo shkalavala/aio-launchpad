@@ -1,0 +1,11 @@
+# Gothenburg geographic site. All Gothenburg factories inherit from this.
+apiVersion: siteops/v1
+kind: SiteTemplate
+name: gothenburg
+inherits: contoso-industries.yaml
+
+location: swedencentral
+
+labels:
+  factorySite: gothenburg
+  country: SE

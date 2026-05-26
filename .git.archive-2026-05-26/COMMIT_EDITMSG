@@ -1,0 +1,5 @@
+scrub: rename Husqvarna scenario data to Contoso for public release
+
+Rename husq-/husqvarna/huskvarna/jonkoping/ulm tokens to Contoso-themed equivalents across fixtures, components, YAML reference files, and docs so the repo is safe to flip public without implying a real-customer relationship.
+
+Also renames the fictional GitHub org husqvarna-iot to contoso-iot, the parent enterprise husqvarna-ab to contoso-industries, and remaps Swedish/German factory cities to Stockholm/Gothenburg/Hamburg. The 'Upgrade AIO' rename for the rollout-kind tab is bundled in the same commit (touched same render path).

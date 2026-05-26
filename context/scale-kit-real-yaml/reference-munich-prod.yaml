@@ -1,0 +1,23 @@
+# Munich Production Site
+
+apiVersion: siteops/v1
+kind: Site
+name: munich-prod
+inherits: shared/germany.yaml
+
+# subscription, location, country inherited from shared/germany.yaml
+resourceGroup: rg-iot-munich-prod
+
+labels:
+  environment: prod
+  city: Munich
+
+parameters:
+  clusterName: munich-prod-arc
+  brokerConfig:
+    frontendReplicas: 4
+    frontendWorkers: 2
+    backendRedundancyFactor: 2
+    backendWorkers: 4
+    backendPartitions: 2
+    memoryProfile: Medium

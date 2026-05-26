@@ -1,0 +1,11 @@
+# Stockholm geographic site. All Stockholm factories inherit from this.
+apiVersion: siteops/v1
+kind: SiteTemplate
+name: stockholm
+inherits: contoso-industries.yaml
+
+location: swedencentral
+
+labels:
+  factorySite: stockholm
+  country: SE

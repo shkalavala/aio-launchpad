@@ -1,0 +1,32 @@
+apiVersion: siteops/v1
+kind: Manifest
+name: aio-install
+description: |
+  Deploy the Azure IoT Operations platform with optional secret sync.
+  Composes `_aio-fundamentals.yaml` and adds workload-identity-backed secret
+  sync when the site enables it.
+
+  Optional capabilities (each gated by a site `deployOptions.*` flag):
+    - enableSecretSync        workload-identity-backed secret sync
+    - enableGlobalSite        subscription-scoped edge site (deployed once per subscription)
+    - enableEdgeSite          RG-scoped edge site (deployed per RG)
+
+  To add a sample on top of this install, see `samples/aio-with-opc-ua/manifest.yaml`
+  for an example that composes this install with the OPC UA sample in one
+  deploy.
+
+# Max concurrent sites. 0 = unlimited, 1 = serial.
+parallel: 3
+
+# Default selector. Override at the CLI with `-l <key>=<value>`.
+# Subscription-scoped sites (e.g. contoso-global) use different labels and are
+# intentionally excluded here. Target them with `-l scope=subscription`.
+selector: "environment=dev"
+
+steps:
+  - include: _aio-fundamentals.yaml
+  - include: _resolve-aio.yaml
+    when: "{{ site.properties.deployOptions.enableSecretSync }}"
+  - include: _secretsync.yaml
+    when: "{{ site.properties.deployOptions.enableSecretSync }}"
+

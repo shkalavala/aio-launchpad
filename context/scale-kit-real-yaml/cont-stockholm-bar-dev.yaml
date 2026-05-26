@@ -1,0 +1,14 @@
+apiVersion: siteops/v1
+kind: Site
+name: stockholm-bar-dev
+inherits: shared/stockholm-bar.yaml
+subscription: "00000000-0000-0000-0000-000000000000"
+resourceGroup: rg-stockholm-bar-dev
+
+labels:
+  environment: dev
+
+parameters:
+  aioInstanceName: stockholm-bar-dev-aio
+  envPrefix: "dev"
+  excludeEndpoints: []

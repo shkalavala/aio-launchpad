@@ -1,0 +1,23 @@
+# Gothenburg Cutting Equipment — band saws and deburring.
+apiVersion: siteops/v1
+kind: SiteTemplate
+name: gothenburg-cutting
+inherits: gothenburg.yaml
+
+labels:
+  plant: cutting
+
+parameters:
+  eventHubNamespace: gothenburg-cutting-eventhubs
+  dataflowManagedIdentity:
+    clientId: 66666666-6666-6666-6666-666666666666
+    tenantId: 77777777-7777-7777-7777-777777777777
+  networking:
+    vnetResourceGroup: rg-network-gothenburg
+    vnetName: vnet-gothenburg-cutting
+    subnetName: snet-iot
+    privateDnsZoneIds: []
+
+properties:
+  deployOptions:
+    includeDataflows: true

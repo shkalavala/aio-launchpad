@@ -1,0 +1,11 @@
+# Hamburg geographic site. All Hamburg factories inherit from this.
+apiVersion: siteops/v1
+kind: SiteTemplate
+name: hamburg
+inherits: contoso-industries.yaml
+
+location: germanywestcentral
+
+labels:
+  factorySite: hamburg
+  country: DE

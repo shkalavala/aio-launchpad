@@ -1,0 +1,15 @@
+apiVersion: siteops/v1
+kind: Site
+name: stockholm-assembly-dev
+inherits: shared/stockholm-assembly.yaml
+subscription: "00000000-0000-0000-0000-000000000000"
+resourceGroup: rg-stockholm-assembly-dev
+
+labels:
+  environment: dev
+
+parameters:
+  aioInstanceName: stockholm-assembly-dev-aio
+  envPrefix: "dev"
+  excludeEndpoints:
+    - plc-gw-asm-eol

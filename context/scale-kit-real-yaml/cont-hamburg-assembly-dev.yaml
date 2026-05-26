@@ -1,0 +1,14 @@
+apiVersion: siteops/v1
+kind: Site
+name: hamburg-assembly-dev
+inherits: shared/hamburg-assembly.yaml
+subscription: "00000000-0000-0000-0000-000000000000"
+resourceGroup: rg-hamburg-assembly-dev
+
+labels:
+  environment: dev
+
+parameters:
+  aioInstanceName: hamburg-assembly-dev-aio
+  envPrefix: "dev"
+  excludeEndpoints: []
