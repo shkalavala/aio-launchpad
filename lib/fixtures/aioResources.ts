@@ -1,15 +1,17 @@
 // AIO ARM-resource fixture.
 //
-// Source: context/clone_aio-165220922_aio.json — an `az iot ops clone`
-// (Bicep-style) export of a live AIO instance. The export wraps each child
-// resource family in a nested deployment; this module flattens those nested
-// resources into a single typed list the Resources screen can render.
+// Source: context/clone_demo.json — a sanitized `az iot ops clone`
+// (Bicep-style) export. Subscription, RG and instance identifiers are
+// scrubbed so this can ship in the public preview. The original
+// non-sanitized export lives at context/clone_aio-*.json (gitignored).
+// This module flattens the nested deployments into a single typed list
+// the Resources screen can render.
 //
 // Synthetic columns (resourceGroup, location, state) are derived from the
 // clone metadata (clonedInstanceId) or fixed to plausible defaults. They
 // only exist to mirror the DoEGit-style table layout — no live ARM query.
 
-import clone from "@/context/clone_aio-165220922_aio.json";
+import clone from "@/context/clone_demo.json";
 
 export type AioResourceCategory =
   | "Instance"

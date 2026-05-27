@@ -1,0 +1,3401 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "languageVersion": "2.0",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "opsCliVersion": "2.6.0",
+    "clonedInstanceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-aio-demo/providers/Microsoft.IoTOperations/instances/aio-demo"
+  },
+  "parameters": {
+    "clusterName": {
+      "type": "string"
+    },
+    "clusterNamespace": {
+      "type": "string",
+      "defaultValue": "azure-iot-operations"
+    },
+    "customLocationName": {
+      "type": "string",
+      "defaultValue": "location-demo"
+    },
+    "instanceName": {
+      "type": "string",
+      "defaultValue": "aio-demo"
+    },
+    "opsExtensionName": {
+      "type": "string",
+      "defaultValue": "azure-iot-operations-freo4"
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "eastus2"
+    },
+    "resourceSlug": {
+      "type": "string",
+      "defaultValue": "[take(uniqueString(resourceGroup().id, parameters('clusterName'), parameters('clusterNamespace')), 5)]"
+    },
+    "schemaRegistryId": {
+      "type": "object",
+      "defaultValue": {
+        "name": "aio-sr-d979b00705",
+        "resourceGroup": "rg-aio-demo",
+        "subscription": "00000000-0000-0000-0000-000000000000"
+      }
+    },
+    "applyRoleAssignments": {
+      "type": "bool",
+      "defaultValue": true
+    },
+    "adrNamespaceId": {
+      "type": "object",
+      "defaultValue": {
+        "name": "aio-adr-ns-d979b00705",
+        "resourceGroup": "rg-aio-demo",
+        "subscription": "00000000-0000-0000-0000-000000000000"
+      }
+    },
+    "adrNamespaceLocation": {
+      "type": "string",
+      "defaultValue": "eastus2"
+    }
+  },
+  "resources": {
+    "certManager": {
+      "apiVersion": "2023-05-01",
+      "name": "cert-manager",
+      "type": "Microsoft.KubernetesConfiguration/extensions",
+      "properties": {
+        "extensionType": "microsoft.certmanagement",
+        "autoUpgradeMinorVersion": false,
+        "releaseTrain": "stable",
+        "version": "0.12.0",
+        "scope": {
+          "cluster": {
+            "releaseNamespace": "cert-manager"
+          }
+        },
+        "configurationSettings": {
+          "AgentOperationTimeoutInMinutes": "20",
+          "global.telemetry.enabled": "true",
+          "trust-manager.secretTargets.enabled": "false",
+          "trust-manager.secretTargets.authorizedSecretsAll": "false"
+        },
+        "configurationProtectedSettings": {},
+        "aksAssignedIdentity": null,
+        "isSystemExtension": false
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "scope": "[resourceId('Microsoft.Kubernetes/connectedClusters', parameters('clusterName'))]"
+    },
+    "secretStore": {
+      "apiVersion": "2023-05-01",
+      "name": "azure-secret-store",
+      "type": "Microsoft.KubernetesConfiguration/extensions",
+      "properties": {
+        "extensionType": "microsoft.azure.secretstore",
+        "autoUpgradeMinorVersion": false,
+        "releaseTrain": "stable",
+        "version": "1.4.1",
+        "scope": {
+          "cluster": {
+            "releaseNamespace": "azure-secret-store"
+          }
+        },
+        "configurationSettings": {
+          "rotationPollIntervalInSeconds": "120",
+          "validatingAdmissionPolicies.applyPolicies": "false"
+        },
+        "configurationProtectedSettings": {},
+        "aksAssignedIdentity": null,
+        "isSystemExtension": false
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "scope": "[resourceId('Microsoft.Kubernetes/connectedClusters', parameters('clusterName'))]",
+      "dependsOn": [
+        "certManager"
+      ]
+    },
+    "iotOperations": {
+      "apiVersion": "2023-05-01",
+      "name": "[parameters('opsExtensionName')]",
+      "type": "Microsoft.KubernetesConfiguration/extensions",
+      "properties": {
+        "extensionType": "microsoft.iotoperations",
+        "autoUpgradeMinorVersion": false,
+        "releaseTrain": "dev",
+        "version": "1.4.0-main.20260521.3",
+        "scope": {
+          "cluster": {
+            "releaseNamespace": "azure-iot-operations"
+          }
+        },
+        "configurationSettings": {
+          "AgentOperationTimeoutInMinutes": "120",
+          "connectors.values.mqttBroker.address": "mqtts://aio-broker.azure-iot-operations:18883",
+          "connectors.values.mqttBroker.serviceAccountTokenAudience": "aio-internal",
+          "connectors.values.securityPki.applicationUri": "urn:microsoft.com:aio:opc:ua:broker:freo4",
+          "connectors.values.securityPki.subjectName": "CN=aio-opc-opcuabroker-freo4",
+          "dataFlows.values.tinyKube.mqttBroker.hostName": "aio-broker.azure-iot-operations",
+          "dataFlows.values.tinyKube.mqttBroker.port": "18883",
+          "dataFlows.values.tinyKube.mqttBroker.authentication.serviceAccountTokenAudience": "aio-internal",
+          "observability.metrics.enabled": "True",
+          "observability.metrics.openTelemetryCollectorAddress": "aio-otel-collector.azure-iot-operations.svc.cluster.local:4317",
+          "trustSource": "SelfSigned",
+          "trustBundleSettings.issuer.name": "azure-iot-operations-aio-certificate-issuer",
+          "trustBundleSettings.issuer.kind": "",
+          "trustBundleSettings.configMap.name": "",
+          "trustBundleSettings.configMap.key": "",
+          "schemaRegistry.values.mqttBroker.host": "mqtts://aio-broker.azure-iot-operations:18883",
+          "schemaRegistry.values.mqttBroker.serviceAccountTokenAudience": "aio-internal"
+        },
+        "configurationProtectedSettings": {},
+        "aksAssignedIdentity": null,
+        "isSystemExtension": false
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "scope": "[resourceId('Microsoft.Kubernetes/connectedClusters', parameters('clusterName'))]",
+      "dependsOn": [
+        "certManager",
+        "secretStore"
+      ]
+    },
+    "customLocation": {
+      "apiVersion": "2021-08-31-preview",
+      "name": "[parameters('customLocationName')]",
+      "location": "[parameters('location')]",
+      "type": "Microsoft.ExtendedLocation/customLocations",
+      "properties": {
+        "hostResourceId": "[resourceId('Microsoft.Kubernetes/connectedClusters', parameters('clusterName'))]",
+        "namespace": "[parameters('clusterNamespace')]",
+        "displayName": "[parameters('customLocationName')]",
+        "clusterExtensionIds": [
+          "[concat(resourceId('Microsoft.Kubernetes/connectedClusters', parameters('clusterName')), '/providers/Microsoft.KubernetesConfiguration/extensions/azure-secret-store')]",
+          "[concat(resourceId('Microsoft.Kubernetes/connectedClusters', parameters('clusterName')), '/providers/Microsoft.KubernetesConfiguration/extensions/', parameters('opsExtensionName'))]"
+        ],
+        "authentication": {}
+      },
+      "dependsOn": [
+        "certManager",
+        "secretStore",
+        "iotOperations"
+      ]
+    },
+    "instance": {
+      "apiVersion": "2026-03-01",
+      "name": "[parameters('instanceName')]",
+      "type": "microsoft.iotoperations/instances",
+      "location": "[parameters('location')]",
+      "extendedLocation": {
+        "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+        "type": "CustomLocation"
+      },
+      "identity": {
+        "type": "None"
+      },
+      "properties": {
+        "version": "1.4.0-main.20260521.3",
+        "adrNamespaceRef": {
+          "resourceId": "[resourceId(parameters('adrNamespaceId').subscription, parameters('adrNamespaceId').resourceGroup, 'Microsoft.DeviceRegistry/namespaces', parameters('adrNamespaceId').name)]"
+        },
+        "description": "An AIO instance.",
+        "schemaRegistryRef": {
+          "resourceId": "[resourceId(parameters('schemaRegistryId').subscription, parameters('schemaRegistryId').resourceGroup, 'Microsoft.DeviceRegistry/schemaRegistries', parameters('schemaRegistryId').name)]"
+        },
+        "defaultSecretProviderClassRef": {
+          "resourceId": "[resourceId('Microsoft.SecretSyncController/azureKeyVaultSecretProviderClasses', 'ssc-secret-provider-class')]"
+        }
+      },
+      "dependsOn": [
+        "customLocation"
+      ]
+    },
+    "roleAssignments_1": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "[concat(parameters('resourceSlug'), '_roleAssignments_1')]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "apiVersion": "2022-04-01",
+              "type": "Microsoft.Authorization/roleAssignments",
+              "name": "[guid(parameters('instanceName'), parameters('clusterName'), parameters('principalId'), resourceGroup().id)]",
+              "scope": "[resourceId(parameters('schemaRegistryId').subscription, parameters('schemaRegistryId').resourceGroup, 'Microsoft.DeviceRegistry/schemaRegistries', parameters('schemaRegistryId').name)]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+                "principalId": "[parameters('principalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ],
+          "parameters": {
+            "clusterName": {
+              "type": "string"
+            },
+            "instanceName": {
+              "type": "string"
+            },
+            "principalId": {
+              "type": "string"
+            },
+            "schemaRegistryId": {
+              "type": "object"
+            }
+          }
+        },
+        "parameters": {
+          "clusterName": {
+            "value": "[parameters('clusterName')]"
+          },
+          "instanceName": {
+            "value": "[parameters('instanceName')]"
+          },
+          "principalId": {
+            "value": "[reference('iotOperations', '2023-05-01', 'Full').identity.principalId]"
+          },
+          "schemaRegistryId": {
+            "value": "[parameters('schemaRegistryId')]"
+          }
+        }
+      },
+      "resourceGroup": "[parameters('schemaRegistryId').resourceGroup]",
+      "condition": "[parameters('applyRoleAssignments')]",
+      "dependsOn": [
+        "iotOperations"
+      ]
+    },
+    "broker": {
+      "apiVersion": "2026-03-01",
+      "name": "[concat(parameters('instanceName'), '/default')]",
+      "type": "microsoft.iotoperations/instances/brokers",
+      "extendedLocation": {
+        "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+        "type": "CustomLocation"
+      },
+      "properties": {
+        "memoryProfile": "Medium",
+        "generateResourceLimits": {
+          "cpu": "Disabled"
+        },
+        "cardinality": {
+          "backendChain": {
+            "partitions": 2,
+            "workers": 2,
+            "redundancyFactor": 2
+          },
+          "frontend": {
+            "replicas": 2,
+            "workers": 2
+          }
+        },
+        "diagnostics": {
+          "logs": {
+            "level": "info,runtime=trace,state_store=debug"
+          },
+          "metrics": {
+            "prometheusPort": 9600
+          },
+          "selfCheck": {
+            "intervalSeconds": 30,
+            "mode": "Enabled",
+            "timeoutSeconds": 60
+          },
+          "traces": {
+            "cacheSizeMegabytes": 16,
+            "mode": "Enabled",
+            "selfTracing": {
+              "intervalSeconds": 30,
+              "mode": "Enabled"
+            },
+            "spanChannelCapacity": 1000
+          }
+        },
+        "advanced": {
+          "encryptInternalTraffic": "Enabled"
+        }
+      },
+      "dependsOn": [
+        "instance"
+      ]
+    },
+    "authns_1": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "[concat(parameters('resourceSlug'), '_authns_1')]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/default/default')]",
+              "type": "microsoft.iotoperations/instances/brokers/authentications",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "authenticationMethods": [
+                  {
+                    "method": "ServiceAccountToken",
+                    "serviceAccountTokenSettings": {
+                      "audiences": [
+                        "aio-internal"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "parameters": {
+            "customLocationName": {
+              "type": "string"
+            },
+            "instanceName": {
+              "type": "string"
+            }
+          }
+        },
+        "parameters": {
+          "customLocationName": {
+            "value": "[parameters('customLocationName')]"
+          },
+          "instanceName": {
+            "value": "[parameters('instanceName')]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('microsoft.iotoperations/instances/brokers', parameters('instanceName'), 'default')]"
+      ]
+    },
+    "listeners_1": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "[concat(parameters('resourceSlug'), '_listeners_1')]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/default/default')]",
+              "type": "microsoft.iotoperations/instances/brokers/listeners",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "serviceType": "ClusterIp",
+                "serviceName": "aio-broker",
+                "ports": [
+                  {
+                    "authenticationRef": "default",
+                    "port": 18883,
+                    "protocol": "Mqtt",
+                    "tls": {
+                      "certManagerCertificateSpec": {
+                        "issuerRef": {
+                          "group": "cert-manager.io",
+                          "kind": "ClusterIssuer",
+                          "name": "azure-iot-operations-aio-certificate-issuer"
+                        },
+                        "privateKey": {
+                          "algorithm": "Ec256",
+                          "rotationPolicy": "Always"
+                        }
+                      },
+                      "mode": "Automatic"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/default/test-listener')]",
+              "type": "microsoft.iotoperations/instances/brokers/listeners",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "serviceType": "NodePort",
+                "serviceName": "aio-dmqtt-frontend-test",
+                "ports": [
+                  {
+                    "nodePort": 31883,
+                    "port": 1883,
+                    "protocol": "Mqtt"
+                  },
+                  {
+                    "authenticationRef": "default",
+                    "nodePort": 31888,
+                    "port": 9883,
+                    "protocol": "Mqtt",
+                    "tls": {
+                      "certManagerCertificateSpec": {
+                        "issuerRef": {
+                          "group": "cert-manager.io",
+                          "kind": "ClusterIssuer",
+                          "name": "azure-iot-operations-aio-certificate-issuer"
+                        },
+                        "privateKey": {
+                          "algorithm": "Ec256",
+                          "rotationPolicy": "Always"
+                        }
+                      },
+                      "mode": "Automatic"
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "parameters": {
+            "customLocationName": {
+              "type": "string"
+            },
+            "instanceName": {
+              "type": "string"
+            }
+          }
+        },
+        "parameters": {
+          "customLocationName": {
+            "value": "[parameters('customLocationName')]"
+          },
+          "instanceName": {
+            "value": "[parameters('instanceName')]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', concat(parameters('resourceSlug'), '_authns_1'))]"
+      ]
+    },
+    "dataflowEndpoints_1": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "[concat(parameters('resourceSlug'), '_dataflowEndpoints_1')]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/default')]",
+              "type": "microsoft.iotoperations/instances/dataflowendpoints",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "endpointType": "Mqtt",
+                "mqttSettings": {
+                  "host": "aio-broker.azure-iot-operations:18883",
+                  "authentication": {
+                    "method": "ServiceAccountToken",
+                    "serviceAccountTokenSettings": {
+                      "audience": "aio-internal"
+                    }
+                  },
+                  "tls": {
+                    "mode": "Enabled",
+                    "trustedCaCertificateConfigMapRef": "azure-iot-operations-aio-ca-trust-bundle"
+                  },
+                  "protocol": "Mqtt",
+                  "keepAliveSeconds": 60,
+                  "retain": "Keep",
+                  "maxInflightMessages": 100,
+                  "qos": 1,
+                  "sessionExpirySeconds": 600,
+                  "cloudEventAttributes": "Propagate"
+                }
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/mqtt-source-scale')]",
+              "type": "microsoft.iotoperations/instances/dataflowendpoints",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "endpointType": "Mqtt",
+                "mqttSettings": {
+                  "host": "aio-broker:18883",
+                  "tls": {
+                    "mode": "Enabled",
+                    "trustedCaCertificateConfigMapRef": "azure-iot-operations-aio-ca-trust-bundle"
+                  },
+                  "authentication": {
+                    "method": "ServiceAccountToken",
+                    "serviceAccountTokenSettings": {
+                      "audience": "aio-internal"
+                    }
+                  },
+                  "maxInflightMessages": 1000,
+                  "protocol": "Mqtt",
+                  "keepAliveSeconds": 60,
+                  "retain": "Keep",
+                  "qos": 1,
+                  "sessionExpirySeconds": 600,
+                  "cloudEventAttributes": "Propagate"
+                }
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/mqtt-dest')]",
+              "type": "microsoft.iotoperations/instances/dataflowendpoints",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "endpointType": "Mqtt",
+                "mqttSettings": {
+                  "host": "aio-broker:18883",
+                  "tls": {
+                    "mode": "Enabled",
+                    "trustedCaCertificateConfigMapRef": "azure-iot-operations-aio-ca-trust-bundle"
+                  },
+                  "authentication": {
+                    "method": "ServiceAccountToken",
+                    "serviceAccountTokenSettings": {
+                      "audience": "aio-internal"
+                    }
+                  },
+                  "protocol": "Mqtt",
+                  "keepAliveSeconds": 60,
+                  "retain": "Keep",
+                  "maxInflightMessages": 100,
+                  "qos": 1,
+                  "sessionExpirySeconds": 600,
+                  "cloudEventAttributes": "Propagate"
+                }
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/mqtt-source')]",
+              "type": "microsoft.iotoperations/instances/dataflowendpoints",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "endpointType": "Mqtt",
+                "mqttSettings": {
+                  "host": "aio-broker:18883",
+                  "tls": {
+                    "mode": "Enabled",
+                    "trustedCaCertificateConfigMapRef": "azure-iot-operations-aio-ca-trust-bundle"
+                  },
+                  "authentication": {
+                    "method": "ServiceAccountToken",
+                    "serviceAccountTokenSettings": {
+                      "audience": "aio-internal"
+                    }
+                  },
+                  "protocol": "Mqtt",
+                  "keepAliveSeconds": 60,
+                  "retain": "Keep",
+                  "maxInflightMessages": 100,
+                  "qos": 1,
+                  "sessionExpirySeconds": 600,
+                  "cloudEventAttributes": "Propagate"
+                }
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/do-not-delete-adx')]",
+              "type": "microsoft.iotoperations/instances/dataflowendpoints",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "endpointType": "DataExplorer",
+                "dataExplorerSettings": {
+                  "authentication": {
+                    "method": "SystemAssignedManagedIdentity",
+                    "systemAssignedManagedIdentitySettings": {}
+                  },
+                  "database": "example-database",
+                  "host": "https://example.westeurope.kusto.windows.net",
+                  "batching": {
+                    "latencySeconds": 60,
+                    "maxMessages": 100000
+                  }
+                }
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/do-not-delete-fabric')]",
+              "type": "microsoft.iotoperations/instances/dataflowendpoints",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "endpointType": "FabricOneLake",
+                "fabricOneLakeSettings": {
+                  "authentication": {
+                    "method": "SystemAssignedManagedIdentity",
+                    "systemAssignedManagedIdentitySettings": {}
+                  },
+                  "host": "https://onelake.dfs.fabric.microsoft.com",
+                  "names": {
+                    "lakehouseName": "raharri_test_e2e",
+                    "workspaceName": "raharri-test"
+                  },
+                  "oneLakePathType": "Tables",
+                  "batching": {
+                    "latencySeconds": 60,
+                    "maxMessages": 100000
+                  }
+                }
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/kafka-target')]",
+              "type": "microsoft.iotoperations/instances/dataflowendpoints",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "endpointType": "Kafka",
+                "kafkaSettings": {
+                  "host": "nbc-e2e-eventhub-ns-6157b05b-2.servicebus.windows.net:9093",
+                  "batching": {
+                    "latencyMs": 50,
+                    "maxBytes": 1000000,
+                    "maxMessages": 100000,
+                    "mode": "Enabled"
+                  },
+                  "tls": {
+                    "mode": "Enabled"
+                  },
+                  "authentication": {
+                    "method": "SystemAssignedManagedIdentity",
+                    "systemAssignedManagedIdentitySettings": {
+                      "audience": "https://nbc-e2e-eventhub-ns-6157b05b-2.servicebus.windows.net"
+                    }
+                  },
+                  "copyMqttProperties": "Disabled",
+                  "compression": "None",
+                  "kafkaAcks": "All",
+                  "partitionStrategy": "Default",
+                  "cloudEventAttributes": "Propagate"
+                }
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/eventgrid')]",
+              "type": "microsoft.iotoperations/instances/dataflowendpoints",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "endpointType": "Mqtt",
+                "mqttSettings": {
+                  "host": "nbc-e2e-eventgrid-ns-6157b05b-2.eastus2-1.ts.eventgrid.azure.net:443/mqtt",
+                  "protocol": "WebSockets",
+                  "tls": {
+                    "mode": "Enabled"
+                  },
+                  "authentication": {
+                    "method": "SystemAssignedManagedIdentity",
+                    "systemAssignedManagedIdentitySettings": {
+                      "audience": "https://eventgrid.azure.net/"
+                    }
+                  },
+                  "keepAliveSeconds": 60,
+                  "retain": "Keep",
+                  "maxInflightMessages": 100,
+                  "qos": 1,
+                  "sessionExpirySeconds": 600,
+                  "cloudEventAttributes": "Propagate"
+                }
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/quickstart-mqtt-endpoint')]",
+              "type": "microsoft.iotoperations/instances/dataflowendpoints",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "endpointType": "Mqtt",
+                "mqttSettings": {
+                  "host": "aio-broker:18883",
+                  "tls": {
+                    "mode": "Enabled",
+                    "trustedCaCertificateConfigMapRef": "azure-iot-operations-aio-ca-trust-bundle"
+                  },
+                  "authentication": {
+                    "method": "ServiceAccountToken",
+                    "serviceAccountTokenSettings": {
+                      "audience": "aio-internal"
+                    }
+                  },
+                  "protocol": "Mqtt",
+                  "keepAliveSeconds": 60,
+                  "retain": "Keep",
+                  "maxInflightMessages": 100,
+                  "qos": 1,
+                  "sessionExpirySeconds": 600,
+                  "cloudEventAttributes": "Propagate"
+                }
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/quickstart-eh-endpoint')]",
+              "type": "microsoft.iotoperations/instances/dataflowendpoints",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "endpointType": "Kafka",
+                "kafkaSettings": {
+                  "host": "aio-eh-gzvnnbkpw2.servicebus.windows.net:9093",
+                  "batching": {
+                    "latencyMs": 0,
+                    "maxMessages": 100,
+                    "maxBytes": 1000000,
+                    "mode": "Enabled"
+                  },
+                  "tls": {
+                    "mode": "Enabled"
+                  },
+                  "authentication": {
+                    "method": "SystemAssignedManagedIdentity",
+                    "systemAssignedManagedIdentitySettings": {
+                      "audience": "https://aio-eh-gzvnnbkpw2.servicebus.windows.net"
+                    }
+                  },
+                  "copyMqttProperties": "Disabled",
+                  "compression": "None",
+                  "kafkaAcks": "All",
+                  "partitionStrategy": "Default",
+                  "cloudEventAttributes": "Propagate"
+                }
+              }
+            }
+          ],
+          "parameters": {
+            "customLocationName": {
+              "type": "string"
+            },
+            "instanceName": {
+              "type": "string"
+            }
+          }
+        },
+        "parameters": {
+          "customLocationName": {
+            "value": "[parameters('customLocationName')]"
+          },
+          "instanceName": {
+            "value": "[parameters('instanceName')]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('microsoft.iotoperations/instances', parameters('instanceName'))]"
+      ]
+    },
+    "dataflowProfiles_1": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "[concat(parameters('resourceSlug'), '_dataflowProfiles_1')]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/default')]",
+              "type": "microsoft.iotoperations/instances/dataflowprofiles",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "instanceCount": 1,
+                "diagnostics": {
+                  "logs": {
+                    "level": "info"
+                  },
+                  "metrics": {
+                    "prometheusPort": 9600
+                  }
+                }
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/dataflowdeployment')]",
+              "type": "microsoft.iotoperations/instances/dataflowprofiles",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "diagnostics": {
+                  "logs": {
+                    "level": "debug,cranelift_codegen=info,wasmtime_cranelift=info,cranelift_wasm=info,rustls=info,datafusion_functions_array=warn,tracing::span=info,controller::rpc::command_executor=info,azure_iot_operations_mqtt::session::session=info,wasmtime_environ=info,wasmtime=info,ort::environment=info,notify::inotify=info,notify=info,notify_debouncer_full=info"
+                  },
+                  "metrics": {
+                    "prometheusPort": 9600
+                  }
+                },
+                "instanceCount": 1
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/quickstart-profile')]",
+              "type": "microsoft.iotoperations/instances/dataflowprofiles",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "diagnostics": {
+                  "logs": {
+                    "level": "debug,status_client=info"
+                  },
+                  "metrics": {
+                    "prometheusPort": 9600
+                  }
+                },
+                "instanceCount": 1
+              }
+            }
+          ],
+          "parameters": {
+            "customLocationName": {
+              "type": "string"
+            },
+            "instanceName": {
+              "type": "string"
+            }
+          }
+        },
+        "parameters": {
+          "customLocationName": {
+            "value": "[parameters('customLocationName')]"
+          },
+          "instanceName": {
+            "value": "[parameters('instanceName')]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('microsoft.iotoperations/instances', parameters('instanceName'))]"
+      ]
+    },
+    "dataflows_1": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "[concat(parameters('resourceSlug'), '_dataflows_1')]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/dataflowdeployment/mqtt-to-kafka-aio-e2e')]",
+              "type": "microsoft.iotoperations/instances/dataflowprofiles/dataflows",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "mode": "Enabled",
+                "operations": [
+                  {
+                    "operationType": "Source",
+                    "sourceSettings": {
+                      "dataSources": [
+                        "azure-iot-operations/path/validateopctokafka"
+                      ],
+                      "endpointRef": "mqtt-source-scale",
+                      "serializationFormat": "Json"
+                    }
+                  },
+                  {
+                    "destinationSettings": {
+                      "dataDestination": "aio-e2e-eventhub",
+                      "endpointRef": "kafka-target",
+                      "headers": []
+                    },
+                    "operationType": "Destination"
+                  }
+                ],
+                "requestDiskPersistence": "Disabled"
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/dataflowdeployment/mqtt-to-mqtt')]",
+              "type": "microsoft.iotoperations/instances/dataflowprofiles/dataflows",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "mode": "Enabled",
+                "operations": [
+                  {
+                    "operationType": "Source",
+                    "sourceSettings": {
+                      "dataSources": [
+                        "data/srctopic"
+                      ],
+                      "endpointRef": "mqtt-source-scale",
+                      "serializationFormat": "Json"
+                    }
+                  },
+                  {
+                    "destinationSettings": {
+                      "dataDestination": "data/desttopic",
+                      "endpointRef": "mqtt-dest",
+                      "headers": []
+                    },
+                    "operationType": "Destination"
+                  }
+                ],
+                "requestDiskPersistence": "Disabled"
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/dataflowdeployment/edge-to-cloud')]",
+              "type": "microsoft.iotoperations/instances/dataflowprofiles/dataflows",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "mode": "Enabled",
+                "operations": [
+                  {
+                    "operationType": "Source",
+                    "sourceSettings": {
+                      "dataSources": [
+                        "actions/responses/my-aio-instance/#"
+                      ],
+                      "endpointRef": "mqtt-source-scale",
+                      "serializationFormat": "Json"
+                    }
+                  },
+                  {
+                    "destinationSettings": {
+                      "dataDestination": "${inputTopic}",
+                      "endpointRef": "eventgrid",
+                      "headers": []
+                    },
+                    "operationType": "Destination"
+                  }
+                ],
+                "requestDiskPersistence": "Disabled"
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/dataflowdeployment/mqtt-to-kafka-nbc')]",
+              "type": "microsoft.iotoperations/instances/dataflowprofiles/dataflows",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "mode": "Enabled",
+                "operations": [
+                  {
+                    "operationType": "Source",
+                    "sourceSettings": {
+                      "dataSources": [
+                        "kafka/local"
+                      ],
+                      "endpointRef": "mqtt-source-scale",
+                      "serializationFormat": "Json"
+                    }
+                  },
+                  {
+                    "destinationSettings": {
+                      "dataDestination": "nbc-e2e-eventhub",
+                      "endpointRef": "kafka-target",
+                      "headers": []
+                    },
+                    "operationType": "Destination"
+                  }
+                ],
+                "requestDiskPersistence": "Disabled"
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/dataflowdeployment/json-to-json')]",
+              "type": "microsoft.iotoperations/instances/dataflowprofiles/dataflows",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "mode": "Enabled",
+                "operations": [
+                  {
+                    "operationType": "Source",
+                    "sourceSettings": {
+                      "dataSources": [
+                        "format/srctopic"
+                      ],
+                      "endpointRef": "mqtt-source-scale",
+                      "serializationFormat": "Json"
+                    }
+                  },
+                  {
+                    "builtInTransformationSettings": {
+                      "datasets": [],
+                      "filter": [],
+                      "map": [
+                        {
+                          "inputs": [
+                            "Test1"
+                          ],
+                          "output": "Test1"
+                        },
+                        {
+                          "inputs": [
+                            "Test2"
+                          ],
+                          "output": "Test2"
+                        }
+                      ],
+                      "serializationFormat": "Json"
+                    },
+                    "operationType": "BuiltInTransformation"
+                  },
+                  {
+                    "destinationSettings": {
+                      "dataDestination": "format/desttopic",
+                      "endpointRef": "mqtt-dest",
+                      "headers": []
+                    },
+                    "operationType": "Destination"
+                  }
+                ],
+                "requestDiskPersistence": "Disabled"
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/dataflowdeployment/payload-convert')]",
+              "type": "microsoft.iotoperations/instances/dataflowprofiles/dataflows",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "mode": "Enabled",
+                "operations": [
+                  {
+                    "operationType": "Source",
+                    "sourceSettings": {
+                      "dataSources": [
+                        "payload/convert/srctopic"
+                      ],
+                      "endpointRef": "mqtt-source-scale",
+                      "serializationFormat": "Json"
+                    }
+                  },
+                  {
+                    "builtInTransformationSettings": {
+                      "datasets": [],
+                      "filter": [],
+                      "map": [
+                        {
+                          "expression": "$1 * 9 / 5 + 32",
+                          "inputs": [
+                            "temperatureCelsius"
+                          ],
+                          "output": "TemperatureFahrenheit"
+                        }
+                      ],
+                      "serializationFormat": "Json"
+                    },
+                    "operationType": "BuiltInTransformation"
+                  },
+                  {
+                    "destinationSettings": {
+                      "dataDestination": "payload/convert/desttopic",
+                      "endpointRef": "mqtt-source-scale",
+                      "headers": []
+                    },
+                    "operationType": "Destination"
+                  }
+                ],
+                "requestDiskPersistence": "Disabled"
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/dataflowdeployment/mqtt-to-kafka-aio-e2e-deterministic-load')]",
+              "type": "microsoft.iotoperations/instances/dataflowprofiles/dataflows",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "mode": "Enabled",
+                "operations": [
+                  {
+                    "operationType": "Source",
+                    "sourceSettings": {
+                      "dataSources": [
+                        "azure-iot-operations/path/deterministicdataset"
+                      ],
+                      "endpointRef": "mqtt-source-scale",
+                      "serializationFormat": "Json"
+                    }
+                  },
+                  {
+                    "builtInTransformationSettings": {
+                      "datasets": [],
+                      "filter": [],
+                      "map": [
+                        {
+                          "inputs": [
+                            "*"
+                          ],
+                          "output": "*",
+                          "type": "PassThrough"
+                        },
+                        {
+                          "description": "Temperature in F",
+                          "expression": "$1 * 9/5 + 32",
+                          "inputs": [
+                            "Temperature.Value ? $last"
+                          ],
+                          "output": "TemperatureF.Value",
+                          "type": "Compute"
+                        },
+                        {
+                          "description": "Average",
+                          "expression": "($1 + $2)/2",
+                          "inputs": [
+                            "Temperature.Value",
+                            "Humidity.Value"
+                          ],
+                          "output": "Average.Value",
+                          "type": "Compute"
+                        },
+                        {
+                          "description": "Rename Temperature.SourceTimestamp",
+                          "inputs": [
+                            "Temperature.SourceTimestamp"
+                          ],
+                          "output": "Temperature.Timestamp",
+                          "type": "Rename"
+                        },
+                        {
+                          "description": "Rename externalAssetId",
+                          "inputs": [
+                            "$metadata.user_property.externalAssetId"
+                          ],
+                          "output": "externalAssetId",
+                          "type": "Rename"
+                        },
+                        {
+                          "description": "NewProperties",
+                          "expression": "\"true\"",
+                          "inputs": [],
+                          "output": "dataflow-processed",
+                          "type": "NewProperties"
+                        },
+                        {
+                          "inputs": [
+                            "Temperature.Value"
+                          ],
+                          "output": "Temperature.Value",
+                          "type": "PassThrough"
+                        }
+                      ],
+                      "serializationFormat": "Json"
+                    },
+                    "operationType": "BuiltInTransformation"
+                  },
+                  {
+                    "destinationSettings": {
+                      "dataDestination": "aio-e2e-eventhub-deterministic-test",
+                      "endpointRef": "kafka-target",
+                      "headers": []
+                    },
+                    "operationType": "Destination"
+                  }
+                ],
+                "requestDiskPersistence": "Disabled"
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/dataflowdeployment/mqtt-to-eventgrid-nbc')]",
+              "type": "microsoft.iotoperations/instances/dataflowprofiles/dataflows",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "mode": "Enabled",
+                "operations": [
+                  {
+                    "operationType": "Source",
+                    "sourceSettings": {
+                      "dataSources": [
+                        "eventgrid/local"
+                      ],
+                      "endpointRef": "mqtt-source-scale",
+                      "serializationFormat": "Json"
+                    }
+                  },
+                  {
+                    "destinationSettings": {
+                      "dataDestination": "eventgrid/remote",
+                      "endpointRef": "eventgrid",
+                      "headers": []
+                    },
+                    "operationType": "Destination"
+                  }
+                ],
+                "requestDiskPersistence": "Disabled"
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/quickstart-profile/quickstart-oven-dataflow')]",
+              "type": "microsoft.iotoperations/instances/dataflowprofiles/dataflows",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "mode": "Enabled",
+                "operations": [
+                  {
+                    "operationType": "Source",
+                    "sourceSettings": {
+                      "assetRef": "oven",
+                      "dataSources": [
+                        "azure-iot-operations/data/oven"
+                      ],
+                      "endpointRef": "quickstart-mqtt-endpoint",
+                      "serializationFormat": "Json"
+                    }
+                  },
+                  {
+                    "builtInTransformationSettings": {
+                      "datasets": [],
+                      "filter": [],
+                      "map": [
+                        {
+                          "inputs": [
+                            "*"
+                          ],
+                          "output": "*",
+                          "type": "PassThrough"
+                        },
+                        {
+                          "description": "Temperature in F",
+                          "expression": "$1 * 9/5 + 32",
+                          "inputs": [
+                            "Temperature.Value ? $last"
+                          ],
+                          "output": "TemperatureF",
+                          "type": "Compute"
+                        },
+                        {
+                          "expression": "$1 > 225",
+                          "inputs": [
+                            "Temperature.Value ? $last"
+                          ],
+                          "output": "Spike",
+                          "type": "Compute"
+                        },
+                        {
+                          "inputs": [
+                            "Temperature.Value"
+                          ],
+                          "output": "Temperature.Value",
+                          "type": "Rename"
+                        },
+                        {
+                          "inputs": [
+                            "$metadata.user_property.externalAssetId"
+                          ],
+                          "output": "AssetId"
+                        }
+                      ],
+                      "serializationFormat": "Json"
+                    },
+                    "operationType": "BuiltInTransformation"
+                  },
+                  {
+                    "destinationSettings": {
+                      "dataDestination": "destinationeh",
+                      "endpointRef": "quickstart-eh-endpoint",
+                      "headers": []
+                    },
+                    "operationType": "Destination"
+                  }
+                ],
+                "requestDiskPersistence": "Disabled"
+              }
+            }
+          ],
+          "parameters": {
+            "customLocationName": {
+              "type": "string"
+            },
+            "instanceName": {
+              "type": "string"
+            }
+          }
+        },
+        "parameters": {
+          "customLocationName": {
+            "value": "[parameters('customLocationName')]"
+          },
+          "instanceName": {
+            "value": "[parameters('instanceName')]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', concat(parameters('resourceSlug'), '_dataflowProfiles_1'))]",
+        "[resourceId('Microsoft.Resources/deployments', concat(parameters('resourceSlug'), '_dataflowEndpoints_1'))]"
+      ]
+    },
+    "secretProviderClasss_1": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "[concat(parameters('resourceSlug'), '_secretProviderClasss_1')]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "apiVersion": "2024-08-21-preview",
+              "name": "ssc-secret-provider-class",
+              "type": "microsoft.secretsynccontroller/azurekeyvaultsecretproviderclasses",
+              "location": "[parameters('location')]",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "clientId": "d954b381-55bd-4f7e-897b-90ed01f89190",
+                "keyvaultName": "aio-kv-d979b00705",
+                "objects": "array:\n  - |\n    objectName: test-secret\n    objectType: secret",
+                "tenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47"
+              }
+            },
+            {
+              "apiVersion": "2024-08-21-preview",
+              "name": "eventgrid-secrets",
+              "type": "microsoft.secretsynccontroller/azurekeyvaultsecretproviderclasses",
+              "location": "[parameters('location')]",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "clientId": "d954b381-55bd-4f7e-897b-90ed01f89190",
+                "keyvaultName": "aio-kv-d979b00705",
+                "objects": "array:\n  - |\n    objectName: nbc-eventgrid-cert\n    objectType: secret\n  - |\n    objectName: nbc-eventgrid-key\n    objectType: secret",
+                "tenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47"
+              }
+            },
+            {
+              "apiVersion": "2024-08-21-preview",
+              "name": "onvif-spc",
+              "type": "microsoft.secretsynccontroller/azurekeyvaultsecretproviderclasses",
+              "location": "[parameters('location')]",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "clientId": "d954b381-55bd-4f7e-897b-90ed01f89190",
+                "keyvaultName": "aio-kv-d979b00705",
+                "objects": "array:\n  - |\n    objectName: onvif-username-valid\n    objectType: secret\n  - |\n    objectName: onvif-password-valid\n    objectType: secret\n  - |\n    objectName: onvif-username-invalid\n    objectType: secret\n  - |\n    objectName: onvif-password-invalid\n    objectType: secret",
+                "tenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47"
+              }
+            },
+            {
+              "apiVersion": "2024-08-21-preview",
+              "name": "rest-and-sse-connectors-secrets",
+              "type": "microsoft.secretsynccontroller/azurekeyvaultsecretproviderclasses",
+              "location": "[parameters('location')]",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "clientId": "d954b381-55bd-4f7e-897b-90ed01f89190",
+                "keyvaultName": "aio-kv-d979b00705",
+                "objects": "array:\n  - |\n    objectName: rest-connector-root-ca-cert\n    objectType: secret\n  - |\n    objectName: rest-connector-client-cert\n    objectType: secret\n  - |\n    objectName: rest-connector-client-key\n    objectType: secret\n  - |\n    objectName: rest-connector-int-cert\n    objectType: secret\n  - |\n    objectName: rest-basicauth-username\n    objectType: secret\n  - |\n    objectName: rest-basicauth-password\n    objectType: secret\n  - |\n    objectName: sse-connector-root-ca-cert\n    objectType: secret\n  - |\n    objectName: sse-connector-client-cert\n    objectType: secret\n  - |\n    objectName: sse-connector-client-key\n    objectType: secret\n  - |\n    objectName: sse-connector-int-cert\n    objectType: secret\n  - |\n    objectName: sse-basicauth-username\n    objectType: secret\n  - |\n    objectName: sse-basicauth-password\n    objectType: secret",
+                "tenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47"
+              }
+            },
+            {
+              "apiVersion": "2024-08-21-preview",
+              "name": "media-spc",
+              "type": "microsoft.secretsynccontroller/azurekeyvaultsecretproviderclasses",
+              "location": "[parameters('location')]",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "clientId": "d954b381-55bd-4f7e-897b-90ed01f89190",
+                "keyvaultName": "aio-kv-d979b00705",
+                "objects": "array:\n  - |\n    objectName: onvif-rtsp-simulator-auth-username-valid\n    objectType: secret\n  - |\n    objectName: onvif-rtsp-simulator-auth-password-valid\n    objectType: secret\n  - |\n    objectName: onvif-rtsp-simulator-auth-username-invalid\n    objectType: secret\n  - |\n    objectName: onvif-rtsp-simulator-auth-password-invalid\n    objectType: secret",
+                "tenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47"
+              }
+            },
+            {
+              "apiVersion": "2024-08-21-preview",
+              "name": "opc-spc",
+              "type": "microsoft.secretsynccontroller/azurekeyvaultsecretproviderclasses",
+              "location": "[parameters('location')]",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "clientId": "d954b381-55bd-4f7e-897b-90ed01f89190",
+                "keyvaultName": "aio-kv-d979b00705",
+                "objects": "array:\n  - |\n    objectName: opcua-username-valid\n    objectType: secret\n  - |\n    objectName: opcua-password-valid\n    objectType: secret\n  - |\n    objectName: opcua-username-invalid\n    objectType: secret\n  - |\n    objectName: opcua-password-invalid\n    objectType: secret",
+                "tenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47"
+              }
+            }
+          ],
+          "parameters": {
+            "customLocationName": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            }
+          }
+        },
+        "parameters": {
+          "customLocationName": {
+            "value": "[parameters('customLocationName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('microsoft.iotoperations/instances', parameters('instanceName'))]"
+      ]
+    },
+    "secretSyncs_1": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "[concat(parameters('resourceSlug'), '_secretSyncs_1')]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "apiVersion": "2024-08-21-preview",
+              "name": "ssc-secret-sync",
+              "type": "microsoft.secretsynccontroller/secretsyncs",
+              "location": "[parameters('location')]",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "secretProviderClassName": "ssc-secret-provider-class",
+                "serviceAccountName": "aio-ssc-sa",
+                "kubernetesSecretType": "Opaque",
+                "objectSecretMapping": [
+                  {
+                    "sourcePath": "test-secret",
+                    "targetKey": "test-secret-data-key0"
+                  }
+                ]
+              }
+            },
+            {
+              "apiVersion": "2024-08-21-preview",
+              "name": "x509-secret",
+              "type": "microsoft.secretsynccontroller/secretsyncs",
+              "location": "[parameters('location')]",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "secretProviderClassName": "eventgrid-secrets",
+                "serviceAccountName": "aio-ssc-sa",
+                "kubernetesSecretType": "Opaque",
+                "objectSecretMapping": [
+                  {
+                    "sourcePath": "nbc-eventgrid-cert",
+                    "targetKey": "client_cert.pem"
+                  },
+                  {
+                    "sourcePath": "nbc-eventgrid-key",
+                    "targetKey": "client_key.pem"
+                  }
+                ]
+              }
+            },
+            {
+              "apiVersion": "2024-08-21-preview",
+              "name": "onvif-secrets",
+              "type": "microsoft.secretsynccontroller/secretsyncs",
+              "location": "[parameters('location')]",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "secretProviderClassName": "onvif-spc",
+                "serviceAccountName": "aio-ssc-sa",
+                "kubernetesSecretType": "Opaque",
+                "objectSecretMapping": [
+                  {
+                    "sourcePath": "onvif-username-valid",
+                    "targetKey": "onvif-username-valid-key"
+                  },
+                  {
+                    "sourcePath": "onvif-password-valid",
+                    "targetKey": "onvif-password-valid-key"
+                  },
+                  {
+                    "sourcePath": "onvif-username-invalid",
+                    "targetKey": "onvif-username-invalid-key"
+                  },
+                  {
+                    "sourcePath": "onvif-password-invalid",
+                    "targetKey": "onvif-password-invalid-key"
+                  }
+                ]
+              }
+            },
+            {
+              "apiVersion": "2024-08-21-preview",
+              "name": "sse-connector-trust-list",
+              "type": "microsoft.secretsynccontroller/secretsyncs",
+              "location": "[parameters('location')]",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "secretProviderClassName": "rest-and-sse-connectors-secrets",
+                "serviceAccountName": "aio-ssc-sa",
+                "kubernetesSecretType": "Opaque",
+                "objectSecretMapping": [
+                  {
+                    "sourcePath": "sse-connector-root-ca-cert",
+                    "targetKey": "root-ca-cert"
+                  }
+                ]
+              }
+            },
+            {
+              "apiVersion": "2024-08-21-preview",
+              "name": "sse-connector-client-secret",
+              "type": "microsoft.secretsynccontroller/secretsyncs",
+              "location": "[parameters('location')]",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "secretProviderClassName": "rest-and-sse-connectors-secrets",
+                "serviceAccountName": "aio-ssc-sa",
+                "kubernetesSecretType": "Opaque",
+                "objectSecretMapping": [
+                  {
+                    "sourcePath": "sse-connector-client-cert",
+                    "targetKey": "client-crt"
+                  },
+                  {
+                    "sourcePath": "sse-connector-client-key",
+                    "targetKey": "client-key"
+                  },
+                  {
+                    "sourcePath": "sse-connector-int-cert",
+                    "targetKey": "int-cert"
+                  },
+                  {
+                    "sourcePath": "sse-basicauth-username",
+                    "targetKey": "basicauth-username"
+                  },
+                  {
+                    "sourcePath": "sse-basicauth-password",
+                    "targetKey": "basicauth-password"
+                  }
+                ]
+              }
+            },
+            {
+              "apiVersion": "2024-08-21-preview",
+              "name": "rest-connector-client-secret",
+              "type": "microsoft.secretsynccontroller/secretsyncs",
+              "location": "[parameters('location')]",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "secretProviderClassName": "rest-and-sse-connectors-secrets",
+                "serviceAccountName": "aio-ssc-sa",
+                "kubernetesSecretType": "Opaque",
+                "objectSecretMapping": [
+                  {
+                    "sourcePath": "rest-connector-client-cert",
+                    "targetKey": "client-crt"
+                  },
+                  {
+                    "sourcePath": "rest-connector-client-key",
+                    "targetKey": "client-key"
+                  },
+                  {
+                    "sourcePath": "rest-connector-int-cert",
+                    "targetKey": "int-cert"
+                  },
+                  {
+                    "sourcePath": "rest-basicauth-username",
+                    "targetKey": "basicauth-username"
+                  },
+                  {
+                    "sourcePath": "rest-basicauth-password",
+                    "targetKey": "basicauth-password"
+                  }
+                ]
+              }
+            },
+            {
+              "apiVersion": "2024-08-21-preview",
+              "name": "rest-connector-trust-list",
+              "type": "microsoft.secretsynccontroller/secretsyncs",
+              "location": "[parameters('location')]",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "secretProviderClassName": "rest-and-sse-connectors-secrets",
+                "serviceAccountName": "aio-ssc-sa",
+                "kubernetesSecretType": "Opaque",
+                "objectSecretMapping": [
+                  {
+                    "sourcePath": "rest-connector-root-ca-cert",
+                    "targetKey": "root-ca-cert"
+                  }
+                ]
+              }
+            },
+            {
+              "apiVersion": "2024-08-21-preview",
+              "name": "opcuasecretsync",
+              "type": "microsoft.secretsynccontroller/secretsyncs",
+              "location": "[parameters('location')]",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "secretProviderClassName": "opc-spc",
+                "serviceAccountName": "aio-ssc-sa",
+                "kubernetesSecretType": "Opaque",
+                "objectSecretMapping": [
+                  {
+                    "sourcePath": "opcua-username-valid",
+                    "targetKey": "opcua-username-valid-key"
+                  },
+                  {
+                    "sourcePath": "opcua-password-valid",
+                    "targetKey": "opcua-password-valid-key"
+                  },
+                  {
+                    "sourcePath": "opcua-username-invalid",
+                    "targetKey": "opcua-username-invalid-key"
+                  },
+                  {
+                    "sourcePath": "opcua-password-invalid",
+                    "targetKey": "opcua-password-invalid-key"
+                  }
+                ]
+              }
+            },
+            {
+              "apiVersion": "2024-08-21-preview",
+              "name": "media-secrets",
+              "type": "microsoft.secretsynccontroller/secretsyncs",
+              "location": "[parameters('location')]",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "secretProviderClassName": "media-spc",
+                "serviceAccountName": "aio-ssc-sa",
+                "kubernetesSecretType": "Opaque",
+                "objectSecretMapping": [
+                  {
+                    "sourcePath": "onvif-rtsp-simulator-auth-username-valid",
+                    "targetKey": "onvif-rtsp-simulator-auth-username-valid-key"
+                  },
+                  {
+                    "sourcePath": "onvif-rtsp-simulator-auth-password-valid",
+                    "targetKey": "onvif-rtsp-simulator-auth-password-valid-key"
+                  },
+                  {
+                    "sourcePath": "onvif-rtsp-simulator-auth-username-invalid",
+                    "targetKey": "onvif-rtsp-simulator-auth-username-invalid-key"
+                  },
+                  {
+                    "sourcePath": "onvif-rtsp-simulator-auth-password-invalid",
+                    "targetKey": "onvif-rtsp-simulator-auth-password-invalid-key"
+                  }
+                ]
+              }
+            }
+          ],
+          "parameters": {
+            "customLocationName": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            }
+          }
+        },
+        "parameters": {
+          "customLocationName": {
+            "value": "[parameters('customLocationName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', concat(parameters('resourceSlug'), '_secretProviderClasss_1'))]"
+      ]
+    },
+    "assetEndpointProfiles_1": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "[concat(parameters('resourceSlug'), '_assetEndpointProfiles_1')]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "apiVersion": "2026-04-01",
+              "name": "do-not-delete",
+              "type": "microsoft.deviceregistry/assetendpointprofiles",
+              "location": "[parameters('location')]",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "authentication": {
+                  "method": "Anonymous"
+                },
+                "uuid": "5b58a998-6413-4450-970c-e296ca9aefd5",
+                "additionalConfiguration": "{}",
+                "endpointProfileType": "Microsoft.OpcUa",
+                "targetAddress": "opc.tcp://opcplc-e2e-anon-000000:50000"
+              }
+            },
+            {
+              "apiVersion": "2026-04-01",
+              "name": "opc-ua-connector-0",
+              "type": "microsoft.deviceregistry/assetendpointprofiles",
+              "location": "[parameters('location')]",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "authentication": {
+                  "method": "Anonymous"
+                },
+                "uuid": "72ed98b0-76d5-4582-8f47-edd9c4823b27",
+                "endpointProfileType": "Microsoft.OpcUa",
+                "targetAddress": "opc.tcp://opcplc-0-anonymous:50000"
+              }
+            }
+          ],
+          "parameters": {
+            "customLocationName": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            }
+          }
+        },
+        "parameters": {
+          "customLocationName": {
+            "value": "[parameters('customLocationName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('microsoft.iotoperations/instances', parameters('instanceName'))]",
+        "[resourceId('Microsoft.Resources/deployments', concat(parameters('resourceSlug'), '_listeners_1'))]"
+      ]
+    },
+    "assets_1": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "[concat(parameters('resourceSlug'), '_assets_1')]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "apiVersion": "2026-04-01",
+              "name": "do-not-delete",
+              "type": "microsoft.deviceregistry/assets",
+              "location": "[parameters('location')]",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "description": "Used for DOE e2e tests, do not delete or tests will break",
+                "displayName": "do-not-delete",
+                "enabled": true,
+                "version": 1,
+                "uuid": "6a27aaea-ac7c-4e7c-b4a5-91eab807f07a",
+                "externalAssetId": "2b05166e-2114-46f2-b289-a5e503343217",
+                "datasets": [
+                  {
+                    "name": "default",
+                    "dataPoints": [
+                      {
+                        "name": "temperature",
+                        "dataPointConfiguration": "{}",
+                        "observabilityMode": "None",
+                        "dataSource": "ns=3;s=FastUInt10"
+                      }
+                    ]
+                  }
+                ],
+                "defaultDatasetsConfiguration": "{\"publishingInterval\":1000,\"samplingInterval\":500,\"queueSize\":1}",
+                "assetEndpointProfileRef": "do-not-delete"
+              }
+            },
+            {
+              "apiVersion": "2026-04-01",
+              "name": "oven",
+              "type": "microsoft.deviceregistry/assets",
+              "location": "[parameters('location')]",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "description": "an oven is essential for baking a wide variety of products",
+                "enabled": true,
+                "version": 1,
+                "displayName": "oven",
+                "serialNumber": "12345",
+                "manufacturer": "http://asset.oven.contoso",
+                "model": "Mymodel",
+                "productCode": "12345C",
+                "uuid": "663e2ba8-23ce-4fac-ac1d-074f7b834723",
+                "externalAssetId": "32faab3f-88e8-4f38-b901-e175dde50c28",
+                "datasets": [
+                  {
+                    "name": "some-random-dataset",
+                    "dataPoints": [
+                      {
+                        "name": "Temperature",
+                        "dataSource": "ns=3;s=FastUInt100",
+                        "dataPointConfiguration": "{\"samplingInterval\":500,\"queueSize\":1}",
+                        "observabilityMode": "None"
+                      },
+                      {
+                        "name": "FillWeight",
+                        "dataSource": "ns=3;s=FastUInt1004",
+                        "dataPointConfiguration": "{\"samplingInterval\":500,\"queueSize\":1}",
+                        "observabilityMode": "None"
+                      },
+                      {
+                        "name": "EnergyUse",
+                        "dataSource": "ns=3;s=FastUInt1005",
+                        "dataPointConfiguration": "{\"samplingInterval\":500,\"queueSize\":1}",
+                        "observabilityMode": "None"
+                      }
+                    ]
+                  }
+                ],
+                "defaultDatasetsConfiguration": "{\"publishingInterval\":1000,\"samplingInterval\":500,\"queueSize\":1}",
+                "assetEndpointProfileRef": "opc-ua-connector-0",
+                "softwareRevision": "1.1",
+                "hardwareRevision": "http://docs.oven.asset.contoso",
+                "documentationUri": "http://docs.oven.asset.contoso",
+                "manufacturerUri": "http://oven.asset.contoso"
+              }
+            }
+          ],
+          "parameters": {
+            "customLocationName": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            }
+          }
+        },
+        "parameters": {
+          "customLocationName": {
+            "value": "[parameters('customLocationName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', concat(parameters('resourceSlug'), '_assetEndpointProfiles_1'))]"
+      ]
+    },
+    "connectorTemplates_1": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "[concat(parameters('resourceSlug'), '_connectorTemplates_1')]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/rest-connector-template')]",
+              "type": "microsoft.iotoperations/instances/akriconnectortemplates",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "connectorMetadataRef": "aiostaging.azurecr.io/azureiotoperations/akri-connectors/rest-metadata:1.2.0",
+                "aioMetadata": {
+                  "aioMinVersion": "1.2.37"
+                },
+                "runtimeConfiguration": {
+                  "runtimeConfigurationType": "ManagedConfiguration",
+                  "managedConfigurationSettings": {
+                    "managedConfigurationType": "ImageConfiguration",
+                    "imageConfigurationSettings": {
+                      "registrySettings": {
+                        "registrySettingsType": "ContainerRegistry",
+                        "containerRegistrySettings": {
+                          "registry": "aiostaging.azurecr.io"
+                        }
+                      },
+                      "imageName": "azureiotoperations/akri-connectors/rest",
+                      "tagDigestSettings": {
+                        "tagDigestType": "Tag",
+                        "tag": "1.2.0"
+                      },
+                      "replicas": 1
+                    },
+                    "trustSettings": {
+                      "trustListSecretRef": "rest-connector-trust-list"
+                    }
+                  }
+                },
+                "mqttConnectionConfiguration": {
+                  "tls": {
+                    "mode": "Enabled",
+                    "trustedCaCertificateConfigMapRef": "azure-iot-operations-aio-ca-trust-bundle"
+                  },
+                  "authentication": {
+                    "method": "ServiceAccountToken",
+                    "serviceAccountTokenSettings": {
+                      "audience": "aio-internal"
+                    }
+                  },
+                  "host": "aio-broker:18883",
+                  "keepAliveSeconds": 60,
+                  "maxInflightMessages": 100,
+                  "protocol": "Mqtt",
+                  "sessionExpirySeconds": 600
+                },
+                "deviceInboundEndpointTypes": [
+                  {
+                    "endpointType": "Microsoft.Http",
+                    "version": "1.0"
+                  }
+                ]
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/media-connector-template')]",
+              "type": "microsoft.iotoperations/instances/akriconnectortemplates",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "connectorMetadataRef": "aiostaging.azurecr.io/akri-connectors/media-metadata:1.2.40",
+                "aioMetadata": {
+                  "aioMinVersion": "1.2.80"
+                },
+                "runtimeConfiguration": {
+                  "runtimeConfigurationType": "ManagedConfiguration",
+                  "managedConfigurationSettings": {
+                    "managedConfigurationType": "ImageConfiguration",
+                    "imageConfigurationSettings": {
+                      "registrySettings": {
+                        "registrySettingsType": "ContainerRegistry",
+                        "containerRegistrySettings": {
+                          "registry": "aiostaging.azurecr.io"
+                        }
+                      },
+                      "imageName": "akri-connectors/media",
+                      "tagDigestSettings": {
+                        "tagDigestType": "Tag",
+                        "tag": "1.2.40"
+                      },
+                      "replicas": 1
+                    },
+                    "allocation": {
+                      "policy": "Bucketized",
+                      "bucketSize": 5
+                    }
+                  }
+                },
+                "deviceInboundEndpointTypes": [
+                  {
+                    "endpointType": "Microsoft.Media"
+                  }
+                ]
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/mqtt-connector-template')]",
+              "type": "microsoft.iotoperations/instances/akriconnectortemplates",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "connectorMetadataRef": "aiostaging.azurecr.io/azureiotoperations/akri-connectors/mqtt-metadata:2.0.1",
+                "aioMetadata": {
+                  "aioMinVersion": "1.2.37"
+                },
+                "diagnostics": {
+                  "logs": {
+                    "level": "info"
+                  }
+                },
+                "deviceInboundEndpointTypes": [
+                  {
+                    "endpointType": "Microsoft.Mqtt",
+                    "version": "5"
+                  }
+                ],
+                "runtimeConfiguration": {
+                  "runtimeConfigurationType": "ManagedConfiguration",
+                  "managedConfigurationSettings": {
+                    "managedConfigurationType": "ImageConfiguration",
+                    "imageConfigurationSettings": {
+                      "registrySettings": {
+                        "registrySettingsType": "ContainerRegistry",
+                        "containerRegistrySettings": {
+                          "registry": "aiostaging.azurecr.io"
+                        }
+                      },
+                      "imageName": "azureiotoperations/akri-connectors/mqtt",
+                      "replicas": 1,
+                      "imagePullPolicy": "Always",
+                      "tagDigestSettings": {
+                        "tagDigestType": "Tag",
+                        "tag": "2.0.1"
+                      }
+                    }
+                  }
+                },
+                "mqttConnectionConfiguration": {
+                  "host": "aio-broker:18883",
+                  "authentication": {
+                    "method": "ServiceAccountToken",
+                    "serviceAccountTokenSettings": {
+                      "audience": "aio-internal"
+                    }
+                  },
+                  "keepAliveSeconds": 60,
+                  "maxInflightMessages": 100,
+                  "protocol": "Mqtt",
+                  "sessionExpirySeconds": 600,
+                  "tls": {
+                    "mode": "Enabled",
+                    "trustedCaCertificateConfigMapRef": "azure-iot-operations-aio-ca-trust-bundle"
+                  }
+                }
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/onvif-connector-template')]",
+              "type": "microsoft.iotoperations/instances/akriconnectortemplates",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "connectorMetadataRef": "aiostaging.azurecr.io/akri-connectors/onvif-metadata:1.2.40",
+                "aioMetadata": {
+                  "aioMinVersion": "1.2.80"
+                },
+                "runtimeConfiguration": {
+                  "runtimeConfigurationType": "ManagedConfiguration",
+                  "managedConfigurationSettings": {
+                    "managedConfigurationType": "ImageConfiguration",
+                    "imageConfigurationSettings": {
+                      "registrySettings": {
+                        "registrySettingsType": "ContainerRegistry",
+                        "containerRegistrySettings": {
+                          "registry": "mcr.microsoft.com"
+                        }
+                      },
+                      "imageName": "akri-connectors/onvif",
+                      "tagDigestSettings": {
+                        "tagDigestType": "Tag",
+                        "tag": "1.2.40"
+                      },
+                      "replicas": 1
+                    },
+                    "allocation": {
+                      "policy": "Bucketized",
+                      "bucketSize": 5
+                    }
+                  }
+                },
+                "deviceInboundEndpointTypes": [
+                  {
+                    "endpointType": "Microsoft.Onvif"
+                  }
+                ]
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/sse-connector-template')]",
+              "type": "microsoft.iotoperations/instances/akriconnectortemplates",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "connectorMetadataRef": "aiostaging.azurecr.io/azureiotoperations/akri-connectors/sse-metadata:1.2.0",
+                "aioMetadata": {
+                  "aioMinVersion": "1.2.37"
+                },
+                "runtimeConfiguration": {
+                  "runtimeConfigurationType": "ManagedConfiguration",
+                  "managedConfigurationSettings": {
+                    "managedConfigurationType": "ImageConfiguration",
+                    "imageConfigurationSettings": {
+                      "registrySettings": {
+                        "registrySettingsType": "ContainerRegistry",
+                        "containerRegistrySettings": {
+                          "registry": "aiostaging.azurecr.io"
+                        }
+                      },
+                      "imageName": "azureiotoperations/akri-connectors/sse",
+                      "tagDigestSettings": {
+                        "tagDigestType": "Tag",
+                        "tag": "1.2.0"
+                      },
+                      "replicas": 1
+                    },
+                    "trustSettings": {
+                      "trustListSecretRef": "sse-connector-trust-list"
+                    }
+                  }
+                },
+                "mqttConnectionConfiguration": {
+                  "tls": {
+                    "mode": "Enabled",
+                    "trustedCaCertificateConfigMapRef": "azure-iot-operations-aio-ca-trust-bundle"
+                  },
+                  "authentication": {
+                    "method": "ServiceAccountToken",
+                    "serviceAccountTokenSettings": {
+                      "audience": "aio-internal"
+                    }
+                  },
+                  "host": "aio-broker:18883",
+                  "keepAliveSeconds": 60,
+                  "maxInflightMessages": 100,
+                  "protocol": "Mqtt",
+                  "sessionExpirySeconds": 600
+                },
+                "deviceInboundEndpointTypes": [
+                  {
+                    "endpointType": "Microsoft.SSEHttp",
+                    "version": "1.1"
+                  }
+                ]
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/action-test-connector')]",
+              "type": "microsoft.iotoperations/instances/akriconnectortemplates",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "deviceInboundEndpointTypes": [
+                  {
+                    "endpointType": "action-endpoint",
+                    "version": "1.0"
+                  }
+                ],
+                "runtimeConfiguration": {
+                  "runtimeConfigurationType": "ManagedConfiguration",
+                  "managedConfigurationSettings": {
+                    "managedConfigurationType": "ImageConfiguration",
+                    "imageConfigurationSettings": {
+                      "registrySettings": {
+                        "registrySettingsType": "ContainerRegistry",
+                        "containerRegistrySettings": {
+                          "registry": "akribuilds.azurecr.io"
+                        }
+                      },
+                      "imageName": "azureiotoperations/akri-connectors/action-test",
+                      "replicas": 1,
+                      "imagePullPolicy": "Always",
+                      "tagDigestSettings": {
+                        "tagDigestType": "Tag",
+                        "tag": "0.1.0"
+                      }
+                    }
+                  }
+                },
+                "mqttConnectionConfiguration": {
+                  "host": "aio-broker:18883",
+                  "authentication": {
+                    "method": "ServiceAccountToken",
+                    "serviceAccountTokenSettings": {
+                      "audience": "aio-internal"
+                    }
+                  },
+                  "keepAliveSeconds": 60,
+                  "maxInflightMessages": 100,
+                  "protocol": "Mqtt",
+                  "sessionExpirySeconds": 600,
+                  "tls": {
+                    "mode": "Enabled",
+                    "trustedCaCertificateConfigMapRef": "azure-iot-operations-aio-ca-trust-bundle"
+                  }
+                }
+              }
+            }
+          ],
+          "parameters": {
+            "customLocationName": {
+              "type": "string"
+            },
+            "instanceName": {
+              "type": "string"
+            }
+          }
+        },
+        "parameters": {
+          "customLocationName": {
+            "value": "[parameters('customLocationName')]"
+          },
+          "instanceName": {
+            "value": "[parameters('instanceName')]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('microsoft.iotoperations/instances', parameters('instanceName'))]"
+      ]
+    },
+    "registryEndpoints_1": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "[concat(parameters('resourceSlug'), '_registryEndpoints_1')]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/default')]",
+              "type": "microsoft.iotoperations/instances/registryendpoints",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "host": "mcr.microsoft.com",
+                "authentication": {
+                  "method": "Anonymous",
+                  "anonymousSettings": {}
+                },
+                "codeSigningCas": []
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/df-aiostaging')]",
+              "type": "microsoft.iotoperations/instances/registryendpoints",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "host": "aiostaging.azurecr.io",
+                "authentication": {
+                  "method": "Anonymous",
+                  "anonymousSettings": {}
+                },
+                "codeSigningCas": []
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/registry-endpoint-2')]",
+              "type": "microsoft.iotoperations/instances/registryendpoints",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "host": "graphacrregistry0da41e5594.azurecr.io",
+                "authentication": {
+                  "method": "SystemAssignedManagedIdentity",
+                  "systemAssignedManagedIdentitySettings": {}
+                },
+                "codeSigningCas": []
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/df-mqbuilds')]",
+              "type": "microsoft.iotoperations/instances/registryendpoints",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "host": "mqbuilds.azurecr.io",
+                "authentication": {
+                  "method": "Anonymous",
+                  "anonymousSettings": {}
+                },
+                "codeSigningCas": []
+              }
+            },
+            {
+              "apiVersion": "2026-03-01",
+              "name": "[concat(parameters('instanceName'), '/registry-endpoint')]",
+              "type": "microsoft.iotoperations/instances/registryendpoints",
+              "extendedLocation": {
+                "name": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "host": "graphacrregistry0da41e5594.azurecr.io",
+                "authentication": {
+                  "method": "SystemAssignedManagedIdentity",
+                  "systemAssignedManagedIdentitySettings": {
+                    "audience": "https://management.azure.com"
+                  }
+                },
+                "codeSigningCas": []
+              }
+            }
+          ],
+          "parameters": {
+            "customLocationName": {
+              "type": "string"
+            },
+            "instanceName": {
+              "type": "string"
+            }
+          }
+        },
+        "parameters": {
+          "customLocationName": {
+            "value": "[parameters('customLocationName')]"
+          },
+          "instanceName": {
+            "value": "[parameters('instanceName')]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('microsoft.iotoperations/instances', parameters('instanceName'))]"
+      ]
+    },
+    "namespaceDevices_1": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "[concat(parameters('resourceSlug'), '_namespaceDevices_1')]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "apiVersion": "2026-04-01",
+              "name": "[concat(parameters('adrNamespaceId').name, '/action-test-device')]",
+              "type": "microsoft.deviceregistry/namespaces/devices",
+              "location": "[parameters('adrNamespaceLocation')]",
+              "extendedLocation": {
+                "name": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('clusterResourceGroup')), 'Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "enabled": true,
+                "version": 2,
+                "endpoints": {
+                  "outbound": {
+                    "assigned": {}
+                  },
+                  "inbound": {
+                    "action-test-device-endpoint": {
+                      "address": "test-endpoint-address",
+                      "version": "1.0",
+                      "authentication": {
+                        "method": "Anonymous"
+                      },
+                      "endpointType": "action-endpoint",
+                      "additionalConfiguration": null,
+                      "trustSettings": null
+                    }
+                  }
+                },
+                "lastTransitionTime": "2026-05-22T15:23:10.208Z",
+                "externalDeviceId": "action-test-device",
+                "uuid": "3bf95678-22ff-40ee-935e-17a425a0d1df"
+              }
+            },
+            {
+              "apiVersion": "2026-04-01",
+              "name": "[concat(parameters('adrNamespaceId').name, '/doe-onvif-camera')]",
+              "type": "microsoft.deviceregistry/namespaces/devices",
+              "location": "[parameters('adrNamespaceLocation')]",
+              "extendedLocation": {
+                "name": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('clusterResourceGroup')), 'Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "enabled": false,
+                "version": 2,
+                "endpoints": {
+                  "outbound": {
+                    "assigned": {}
+                  },
+                  "inbound": {
+                    "onvif": {
+                      "address": "http://onvif-rtsp-simulator-noauth:8000/onvif/device_service",
+                      "version": null,
+                      "authentication": null,
+                      "endpointType": "Microsoft.Onvif",
+                      "additionalConfiguration": null,
+                      "trustSettings": null
+                    }
+                  }
+                },
+                "lastTransitionTime": "2026-05-22T15:20:32.151Z",
+                "externalDeviceId": "external-camera",
+                "uuid": "4a5395a0-cd55-47fd-80af-08cec2d2e735"
+              }
+            },
+            {
+              "apiVersion": "2026-04-01",
+              "name": "[concat(parameters('adrNamespaceId').name, '/media-device-0')]",
+              "type": "microsoft.deviceregistry/namespaces/devices",
+              "location": "[parameters('adrNamespaceLocation')]",
+              "extendedLocation": {
+                "name": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('clusterResourceGroup')), 'Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "enabled": true,
+                "version": 2,
+                "endpoints": {
+                  "outbound": {
+                    "assigned": {}
+                  },
+                  "inbound": {
+                    "media-endpoint": {
+                      "address": "https://localhost:50000",
+                      "version": null,
+                      "authentication": {
+                        "method": "Anonymous"
+                      },
+                      "endpointType": "Microsoft.Media",
+                      "additionalConfiguration": null,
+                      "trustSettings": null
+                    }
+                  }
+                },
+                "lastTransitionTime": "2026-05-22T15:20:33.022Z",
+                "externalDeviceId": "media-device-0",
+                "uuid": "855b991d-d1d2-40d1-b660-304d5443a3e3"
+              }
+            },
+            {
+              "apiVersion": "2026-04-01",
+              "name": "[concat(parameters('adrNamespaceId').name, '/mqtt-device')]",
+              "type": "microsoft.deviceregistry/namespaces/devices",
+              "location": "[parameters('adrNamespaceLocation')]",
+              "extendedLocation": {
+                "name": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('clusterResourceGroup')), 'Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "enabled": true,
+                "version": 2,
+                "lastTransitionTime": "2026-05-22T18:44:35.271Z",
+                "endpoints": {
+                  "inbound": {
+                    "builtinbroker-endpoint": {
+                      "version": "5",
+                      "authentication": {
+                        "method": "Anonymous"
+                      },
+                      "address": "mqtts://aio-broker.azure-iot-operations.svc.cluster.local:18883",
+                      "additionalConfiguration": "{\"useBuiltInMqttBroker\":true, \"assetDiscoveryConfiguration\":{\"topicFilter\": \"A/B/+\", \"topicMappingPrefix\": \"X/Y\"}}",
+                      "trustSettings": null,
+                      "endpointType": "Microsoft.Mqtt"
+                    }
+                  },
+                  "outbound": {
+                    "assigned": {}
+                  }
+                },
+                "uuid": "b54a5161-e75f-40e6-8f66-824252081f55",
+                "externalDeviceId": "mqtt-device"
+              }
+            },
+            {
+              "apiVersion": "2026-04-01",
+              "name": "[concat(parameters('adrNamespaceId').name, '/opcua-device-0')]",
+              "type": "microsoft.deviceregistry/namespaces/devices",
+              "location": "[parameters('adrNamespaceLocation')]",
+              "extendedLocation": {
+                "name": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('clusterResourceGroup')), 'Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "enabled": true,
+                "version": 2,
+                "lastTransitionTime": "2026-05-22T18:46:53.101Z",
+                "endpoints": {
+                  "inbound": {
+                    "opcua-endpoint": {
+                      "version": null,
+                      "authentication": {
+                        "method": "Anonymous"
+                      },
+                      "address": "opc.tcp://localhost:50000",
+                      "trustSettings": null,
+                      "additionalConfiguration": "{\"applicationName\":\"OPC UA Broker\",\"keepAliveMilliseconds\":10000,\"defaults\":{\"publishingIntervalMilliseconds\":1500,\"samplingIntervalMilliseconds\":1000,\"queueSize\":1,\"keyFrameCount\":0},\"session\":{\"timeoutMilliseconds\":60000,\"keepAliveIntervalMilliseconds\":10000,\"reconnectPeriodMilliseconds\":2000,\"reconnectExponentialBackOffMilliseconds\":10000,\"enableTracingHeaders\":false},\"subscription\":{\"maxItems\":1000,\"lifeTimeMilliseconds\":60000},\"security\":{\"autoAcceptUntrustedServerCertificates\":false,\"securityPolicy\":null,\"securityMode\":null},\"runAssetDiscovery\":false,\"syncPropertiesIntoStateStore\":false}",
+                      "endpointType": "Microsoft.OpcUa"
+                    }
+                  },
+                  "outbound": {
+                    "assigned": {}
+                  }
+                },
+                "uuid": "1e14ff20-fd48-4262-9b60-943e61f4a2ff",
+                "externalDeviceId": "opcua-device-0"
+              }
+            },
+            {
+              "apiVersion": "2026-04-01",
+              "name": "[concat(parameters('adrNamespaceId').name, '/rest-device-0')]",
+              "type": "microsoft.deviceregistry/namespaces/devices",
+              "location": "[parameters('adrNamespaceLocation')]",
+              "extendedLocation": {
+                "name": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('clusterResourceGroup')), 'Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "enabled": true,
+                "version": 4,
+                "lastTransitionTime": "2026-05-22T18:44:34.108Z",
+                "endpoints": {
+                  "inbound": {
+                    "restendpoint_basicauth": {
+                      "version": "1.0",
+                      "authentication": {
+                        "method": "UsernamePassword",
+                        "usernamePasswordCredentials": {
+                          "usernameSecretName": "rest-connector-client-secret/basicauth-username",
+                          "passwordSecretName": "rest-connector-client-secret/basicauth-password"
+                        }
+                      },
+                      "address": "http://rest-test-server.rest-simulator.svc.cluster.local:8081",
+                      "additionalConfiguration": null,
+                      "trustSettings": null,
+                      "endpointType": "Microsoft.Http"
+                    },
+                    "restendpoint_noauth": {
+                      "version": "1.0",
+                      "authentication": {
+                        "method": "Anonymous"
+                      },
+                      "address": "http://rest-test-server.rest-simulator.svc.cluster.local:8080",
+                      "additionalConfiguration": null,
+                      "trustSettings": null,
+                      "endpointType": "Microsoft.Http"
+                    },
+                    "restendpoint_x509": {
+                      "version": "1.0",
+                      "authentication": {
+                        "method": "Certificate",
+                        "x509Credentials": {
+                          "intermediateCertificatesSecretName": "rest-connector-client-secret/int-cert",
+                          "certificateSecretName": "rest-connector-client-secret/client-crt",
+                          "keySecretName": "rest-connector-client-secret/client-key"
+                        }
+                      },
+                      "address": "https://rest-test-server.rest-simulator.svc.cluster.local:8445",
+                      "additionalConfiguration": null,
+                      "trustSettings": null,
+                      "endpointType": "Microsoft.Http"
+                    }
+                  },
+                  "outbound": {
+                    "assigned": {}
+                  }
+                },
+                "uuid": "7198a390-6187-4b3e-829e-bfdca2267e23",
+                "externalDeviceId": "rest-device-0"
+              }
+            },
+            {
+              "apiVersion": "2026-04-01",
+              "name": "[concat(parameters('adrNamespaceId').name, '/simple-rest-device')]",
+              "type": "microsoft.deviceregistry/namespaces/devices",
+              "location": "[parameters('adrNamespaceLocation')]",
+              "extendedLocation": {
+                "name": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('clusterResourceGroup')), 'Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "enabled": true,
+                "version": 2,
+                "endpoints": {
+                  "outbound": {
+                    "assigned": {}
+                  },
+                  "inbound": {
+                    "simplerest": {
+                      "address": "http://rest-server-no-auth-service.default.svc.cluster.local:8000",
+                      "version": "1.0",
+                      "authentication": {
+                        "method": "Anonymous"
+                      },
+                      "endpointType": "Microsoft.Http",
+                      "additionalConfiguration": null,
+                      "trustSettings": null
+                    }
+                  }
+                },
+                "lastTransitionTime": "2026-05-22T15:20:33.888Z",
+                "externalDeviceId": "simple-rest-device",
+                "uuid": "9d1b5cfa-f935-4ee9-a1cb-16d66515f03b"
+              }
+            },
+            {
+              "apiVersion": "2026-04-01",
+              "name": "[concat(parameters('adrNamespaceId').name, '/sse-device-name')]",
+              "type": "microsoft.deviceregistry/namespaces/devices",
+              "location": "[parameters('adrNamespaceLocation')]",
+              "extendedLocation": {
+                "name": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('clusterResourceGroup')), 'Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "enabled": true,
+                "version": 2,
+                "lastTransitionTime": "2026-05-22T18:44:34.465Z",
+                "endpoints": {
+                  "inbound": {
+                    "sse-endpoint-http-basicauth": {
+                      "version": "1.1",
+                      "authentication": {
+                        "method": "UsernamePassword",
+                        "usernamePasswordCredentials": {
+                          "usernameSecretName": "sse-connector-client-secret/basicauth-username",
+                          "passwordSecretName": "sse-connector-client-secret/basicauth-password"
+                        }
+                      },
+                      "address": "http://sse-test-server.sse-simulator.svc.cluster.local:8081/sse-test-events",
+                      "additionalConfiguration": null,
+                      "trustSettings": null,
+                      "endpointType": "Microsoft.SSEHttp"
+                    },
+                    "sse-endpoint-http-noauth": {
+                      "version": "1.1",
+                      "authentication": {
+                        "method": "Anonymous"
+                      },
+                      "address": "http://sse-test-server.sse-simulator.svc.cluster.local:8080/sse-test-events",
+                      "additionalConfiguration": null,
+                      "trustSettings": null,
+                      "endpointType": "Microsoft.SSEHttp"
+                    },
+                    "sse-endpoint-https-mtls": {
+                      "version": "1.1",
+                      "authentication": {
+                        "method": "Certificate",
+                        "x509Credentials": {
+                          "intermediateCertificatesSecretName": "sse-connector-client-secret/int-cert",
+                          "certificateSecretName": "sse-connector-client-secret/client-crt",
+                          "keySecretName": "sse-connector-client-secret/client-key"
+                        }
+                      },
+                      "address": "https://sse-test-server.sse-simulator.svc.cluster.local:8445/sse-test-events",
+                      "additionalConfiguration": null,
+                      "trustSettings": null,
+                      "endpointType": "Microsoft.SSEHttp"
+                    }
+                  },
+                  "outbound": {
+                    "assigned": {}
+                  }
+                },
+                "uuid": "094c37f6-a1ac-42b7-8839-c88d7e5fbdff",
+                "externalDeviceId": "sse-device-name"
+              }
+            }
+          ],
+          "parameters": {
+            "customLocationName": {
+              "type": "string"
+            },
+            "adrNamespaceLocation": {
+              "type": "string"
+            },
+            "adrNamespaceId": {
+              "type": "object"
+            },
+            "clusterResourceGroup": {
+              "type": "string"
+            }
+          }
+        },
+        "parameters": {
+          "customLocationName": {
+            "value": "[parameters('customLocationName')]"
+          },
+          "adrNamespaceLocation": {
+            "value": "[parameters('adrNamespaceLocation')]"
+          },
+          "adrNamespaceId": {
+            "value": "[parameters('adrNamespaceId')]"
+          },
+          "clusterResourceGroup": {
+            "value": "[resourceGroup().name]"
+          }
+        }
+      },
+      "resourceGroup": "[parameters('adrNamespaceId').resourceGroup]",
+      "dependsOn": [
+        "[resourceId('microsoft.iotoperations/instances', parameters('instanceName'))]",
+        "[resourceId('Microsoft.Resources/deployments', concat(parameters('resourceSlug'), '_listeners_1'))]"
+      ]
+    },
+    "namespaceAssets_1": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "[concat(parameters('resourceSlug'), '_namespaceAssets_1')]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "apiVersion": "2026-04-01",
+              "name": "[concat(parameters('adrNamespaceId').name, '/action-test-device-asset')]",
+              "type": "microsoft.deviceregistry/namespaces/assets",
+              "location": "[parameters('adrNamespaceLocation')]",
+              "extendedLocation": {
+                "name": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('clusterResourceGroup')), 'Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "enabled": true,
+                "version": 1,
+                "displayName": "action-test-device-asset",
+                "externalAssetId": "201c5db6-0fef-4397-beb9-7ab61d523199",
+                "uuid": "201c5db6-0fef-4397-beb9-7ab61d523199",
+                "deviceRef": {
+                  "endpointName": "action-test-device-endpoint",
+                  "deviceName": "action-test-device"
+                },
+                "managementGroups": [
+                  {
+                    "name": "managementGroup",
+                    "actions": [
+                      {
+                        "name": "demo",
+                        "topic": "cmd/Demo",
+                        "targetUri": "action-test-uri",
+                        "actionType": "Call"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "apiVersion": "2026-04-01",
+              "name": "[concat(parameters('adrNamespaceId').name, '/asset2-mqtt-device-builtinbroker-endpoint')]",
+              "type": "microsoft.deviceregistry/namespaces/assets",
+              "location": "[parameters('adrNamespaceLocation')]",
+              "extendedLocation": {
+                "name": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('clusterResourceGroup')), 'Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "description": "Mqtt asset for data transformation on sensor data",
+                "enabled": true,
+                "version": 1,
+                "displayName": "asset2-mqtt-device-builtinbroker-endpoint",
+                "datasets": [
+                  {
+                    "name": "A/B/asset2",
+                    "dataSource": "A/B/asset2",
+                    "destinations": [
+                      {
+                        "configuration": {
+                          "topic": "X/Y/A/B/asset2",
+                          "retain": "Never"
+                        },
+                        "target": "Mqtt"
+                      }
+                    ],
+                    "datasetConfiguration": "{\"transform\": \"mqbuilds.azurecr.io/spod-graph:1.0.0\"}"
+                  }
+                ],
+                "externalAssetId": "473cc9c4-d766-45aa-ac17-679c862dea36",
+                "uuid": "473cc9c4-d766-45aa-ac17-679c862dea36",
+                "deviceRef": {
+                  "endpointName": "builtinbroker-endpoint",
+                  "deviceName": "mqtt-device"
+                }
+              }
+            },
+            {
+              "apiVersion": "2026-04-01",
+              "name": "[concat(parameters('adrNamespaceId').name, '/rest-asset-env-basicauth-0')]",
+              "type": "microsoft.deviceregistry/namespaces/assets",
+              "location": "[parameters('adrNamespaceLocation')]",
+              "extendedLocation": {
+                "name": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('clusterResourceGroup')), 'Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "description": "REST asset for environmental sensor data - HTTP basic authentication",
+                "enabled": true,
+                "version": 1,
+                "displayName": "rest-asset-env-basicauth-0",
+                "externalAssetId": "c34d9452-72d3-4098-8772-e30a9cb5a725",
+                "datasets": [
+                  {
+                    "name": "environmental-sensor-dataset",
+                    "dataSource": "/api/sensor/env",
+                    "destinations": [
+                      {
+                        "configuration": {
+                          "topic": "rest-basicauth/env",
+                          "retain": "Never"
+                        },
+                        "target": "Mqtt"
+                      }
+                    ],
+                    "datasetConfiguration": "{\"samplingIntervalInMilliseconds\": 5000}"
+                  }
+                ],
+                "uuid": "c34d9452-72d3-4098-8772-e30a9cb5a725",
+                "deviceRef": {
+                  "endpointName": "restendpoint_basicauth",
+                  "deviceName": "rest-device-0"
+                }
+              }
+            },
+            {
+              "apiVersion": "2026-04-01",
+              "name": "[concat(parameters('adrNamespaceId').name, '/rest-asset-env-noauth-0')]",
+              "type": "microsoft.deviceregistry/namespaces/assets",
+              "location": "[parameters('adrNamespaceLocation')]",
+              "extendedLocation": {
+                "name": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('clusterResourceGroup')), 'Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "description": "REST asset for environmental sensor data - HTTP no authentication",
+                "enabled": true,
+                "version": 1,
+                "displayName": "rest-asset-env-noauth-0",
+                "uuid": "b7778a2e-1b44-4ca3-9023-ec2101d5151f",
+                "externalAssetId": "b7778a2e-1b44-4ca3-9023-ec2101d5151f",
+                "datasets": [
+                  {
+                    "name": "environmental-sensor-dataset",
+                    "destinations": [
+                      {
+                        "configuration": {
+                          "topic": "rest-noauth/env",
+                          "retain": "Never"
+                        },
+                        "target": "Mqtt"
+                      }
+                    ],
+                    "dataSource": "/api/sensor/env",
+                    "datasetConfiguration": "{\"samplingIntervalInMilliseconds\": 5000}"
+                  }
+                ],
+                "deviceRef": {
+                  "endpointName": "restendpoint_noauth",
+                  "deviceName": "rest-device-0"
+                }
+              }
+            },
+            {
+              "apiVersion": "2026-04-01",
+              "name": "[concat(parameters('adrNamespaceId').name, '/rest-asset-env-spod-0')]",
+              "type": "microsoft.deviceregistry/namespaces/assets",
+              "location": "[parameters('adrNamespaceLocation')]",
+              "extendedLocation": {
+                "name": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('clusterResourceGroup')), 'Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "description": "SPOD asset",
+                "enabled": true,
+                "version": 1,
+                "displayName": "rest-asset-env-spod-0",
+                "uuid": "71f2205b-e678-4e2b-be9b-4279894f97e8",
+                "externalAssetId": "71f2205b-e678-4e2b-be9b-4279894f97e8",
+                "datasets": [
+                  {
+                    "name": "spod-sensor-dataset",
+                    "destinations": [
+                      {
+                        "configuration": {
+                          "topic": "rest-spod/env",
+                          "retain": "Never"
+                        },
+                        "target": "Mqtt"
+                      }
+                    ],
+                    "dataSource": "api/jsoninhtml/sensor/env",
+                    "datasetConfiguration": "{\"transform\":\"mqbuilds.azurecr.io/spod-graph:1.0.0\",\"samplingIntervalInMilliseconds\":5000}"
+                  }
+                ],
+                "deviceRef": {
+                  "endpointName": "restendpoint_noauth",
+                  "deviceName": "rest-device-0"
+                }
+              }
+            },
+            {
+              "apiVersion": "2026-04-01",
+              "name": "[concat(parameters('adrNamespaceId').name, '/rest-asset-env-x509-0')]",
+              "type": "microsoft.deviceregistry/namespaces/assets",
+              "location": "[parameters('adrNamespaceLocation')]",
+              "extendedLocation": {
+                "name": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('clusterResourceGroup')), 'Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "description": "REST asset for environmental sensor data - HTTPS X.509 certificate authentication",
+                "enabled": true,
+                "version": 1,
+                "displayName": "rest-asset-env-x509-0",
+                "datasets": [
+                  {
+                    "name": "environmental-sensor-dataset",
+                    "dataSource": "/api/sensor/env",
+                    "destinations": [
+                      {
+                        "configuration": {
+                          "topic": "rest-x509/env",
+                          "retain": "Never"
+                        },
+                        "target": "Mqtt"
+                      }
+                    ],
+                    "datasetConfiguration": "{\"samplingIntervalInMilliseconds\": 5000}"
+                  }
+                ],
+                "externalAssetId": "5c0e2a70-606f-4e12-b104-3555e7fa54d9",
+                "deviceRef": {
+                  "endpointName": "restendpoint_x509",
+                  "deviceName": "rest-device-0"
+                },
+                "uuid": "5c0e2a70-606f-4e12-b104-3555e7fa54d9"
+              }
+            },
+            {
+              "apiVersion": "2026-04-01",
+              "name": "[concat(parameters('adrNamespaceId').name, '/sse-asset-basicauth')]",
+              "type": "microsoft.deviceregistry/namespaces/assets",
+              "location": "[parameters('adrNamespaceLocation')]",
+              "extendedLocation": {
+                "name": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('clusterResourceGroup')), 'Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "enabled": true,
+                "version": 1,
+                "displayName": "sse-asset-basicauth",
+                "datasets": [
+                  {
+                    "name": "ALERT",
+                    "dataSource": "ALERT",
+                    "destinations": [
+                      {
+                        "configuration": {
+                          "topic": "sse-events/basicauth/alert"
+                        },
+                        "target": "Mqtt"
+                      }
+                    ]
+                  }
+                ],
+                "externalAssetId": "deb85132-57de-4b6d-b238-92d3a2bc7a1b",
+                "eventGroups": [
+                  {
+                    "name": "sse-event-group-basicauth",
+                    "events": [
+                      {
+                        "name": "HEARTBEAT",
+                        "dataSource": "HEARTBEAT",
+                        "destinations": [
+                          {
+                            "configuration": {
+                              "topic": "sse-events/basicauth/heartbeat"
+                            },
+                            "target": "Mqtt"
+                          }
+                        ]
+                      },
+                      {
+                        "name": "TEMPERATURE",
+                        "dataSource": "TEMPERATURE",
+                        "destinations": [
+                          {
+                            "configuration": {
+                              "topic": "sse-events/basicauth/temperature"
+                            },
+                            "target": "Mqtt"
+                          }
+                        ]
+                      },
+                      {
+                        "name": "ENERGY",
+                        "dataSource": "ENERGY",
+                        "destinations": [
+                          {
+                            "configuration": {
+                              "topic": "sse-events/basicauth/energy"
+                            },
+                            "target": "Mqtt"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "deviceRef": {
+                  "endpointName": "sse-endpoint-http-basicauth",
+                  "deviceName": "sse-device-name"
+                },
+                "uuid": "deb85132-57de-4b6d-b238-92d3a2bc7a1b",
+                "attributes": {
+                  "assetType": "sse-asset",
+                  "assetId": "my-sse-asset-basicauth"
+                }
+              }
+            },
+            {
+              "apiVersion": "2026-04-01",
+              "name": "[concat(parameters('adrNamespaceId').name, '/sse-asset-noauth')]",
+              "type": "microsoft.deviceregistry/namespaces/assets",
+              "location": "[parameters('adrNamespaceLocation')]",
+              "extendedLocation": {
+                "name": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('clusterResourceGroup')), 'Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "enabled": true,
+                "version": 1,
+                "displayName": "sse-asset-noauth",
+                "externalAssetId": "03c7e32b-3163-43bc-b2f5-e53a6429fad6",
+                "datasets": [
+                  {
+                    "name": "ALERT",
+                    "dataSource": "ALERT",
+                    "destinations": [
+                      {
+                        "configuration": {
+                          "topic": "sse-events/noauth/alert"
+                        },
+                        "target": "Mqtt"
+                      }
+                    ]
+                  }
+                ],
+                "eventGroups": [
+                  {
+                    "name": "sse-event-group-noauth",
+                    "events": [
+                      {
+                        "name": "HEARTBEAT",
+                        "dataSource": "HEARTBEAT",
+                        "destinations": [
+                          {
+                            "configuration": {
+                              "topic": "sse-events/noauth/heartbeat"
+                            },
+                            "target": "Mqtt"
+                          }
+                        ]
+                      },
+                      {
+                        "name": "TEMPERATURE",
+                        "dataSource": "TEMPERATURE",
+                        "destinations": [
+                          {
+                            "configuration": {
+                              "topic": "sse-events/noauth/temperature"
+                            },
+                            "target": "Mqtt"
+                          }
+                        ]
+                      },
+                      {
+                        "name": "ENERGY",
+                        "dataSource": "ENERGY",
+                        "destinations": [
+                          {
+                            "configuration": {
+                              "topic": "sse-events/noauth/energy"
+                            },
+                            "target": "Mqtt"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "uuid": "03c7e32b-3163-43bc-b2f5-e53a6429fad6",
+                "deviceRef": {
+                  "endpointName": "sse-endpoint-http-noauth",
+                  "deviceName": "sse-device-name"
+                },
+                "attributes": {
+                  "assetType": "sse-asset",
+                  "assetId": "my-sse-asset-noauth"
+                }
+              }
+            },
+            {
+              "apiVersion": "2026-04-01",
+              "name": "[concat(parameters('adrNamespaceId').name, '/sse-asset-x509-mtls')]",
+              "type": "microsoft.deviceregistry/namespaces/assets",
+              "location": "[parameters('adrNamespaceLocation')]",
+              "extendedLocation": {
+                "name": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('clusterResourceGroup')), 'Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+                "type": "CustomLocation"
+              },
+              "properties": {
+                "enabled": true,
+                "version": 1,
+                "displayName": "sse-asset-x509-mtls",
+                "externalAssetId": "9a081d76-4301-489a-8a97-15cc69085107",
+                "datasets": [
+                  {
+                    "name": "ALERT",
+                    "dataSource": "ALERT",
+                    "destinations": [
+                      {
+                        "configuration": {
+                          "topic": "sse-events/x509-mtls/alert"
+                        },
+                        "target": "Mqtt"
+                      }
+                    ]
+                  }
+                ],
+                "eventGroups": [
+                  {
+                    "name": "sse-event-group-x509-mtls",
+                    "events": [
+                      {
+                        "name": "HEARTBEAT",
+                        "dataSource": "HEARTBEAT",
+                        "destinations": [
+                          {
+                            "configuration": {
+                              "topic": "sse-events/x509-mtls/heartbeat"
+                            },
+                            "target": "Mqtt"
+                          }
+                        ]
+                      },
+                      {
+                        "name": "TEMPERATURE",
+                        "dataSource": "TEMPERATURE",
+                        "destinations": [
+                          {
+                            "configuration": {
+                              "topic": "sse-events/x509-mtls/temperature"
+                            },
+                            "target": "Mqtt"
+                          }
+                        ]
+                      },
+                      {
+                        "name": "ENERGY",
+                        "dataSource": "ENERGY",
+                        "destinations": [
+                          {
+                            "configuration": {
+                              "topic": "sse-events/x509-mtls/energy"
+                            },
+                            "target": "Mqtt"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "uuid": "9a081d76-4301-489a-8a97-15cc69085107",
+                "deviceRef": {
+                  "endpointName": "sse-endpoint-https-mtls",
+                  "deviceName": "sse-device-name"
+                },
+                "attributes": {
+                  "assetType": "sse-asset",
+                  "assetId": "my-sse-asset-x509-mtls"
+                }
+              }
+            }
+          ],
+          "parameters": {
+            "customLocationName": {
+              "type": "string"
+            },
+            "adrNamespaceLocation": {
+              "type": "string"
+            },
+            "adrNamespaceId": {
+              "type": "object"
+            },
+            "clusterResourceGroup": {
+              "type": "string"
+            }
+          }
+        },
+        "parameters": {
+          "customLocationName": {
+            "value": "[parameters('customLocationName')]"
+          },
+          "adrNamespaceLocation": {
+            "value": "[parameters('adrNamespaceLocation')]"
+          },
+          "adrNamespaceId": {
+            "value": "[parameters('adrNamespaceId')]"
+          },
+          "clusterResourceGroup": {
+            "value": "[resourceGroup().name]"
+          }
+        }
+      },
+      "resourceGroup": "[parameters('adrNamespaceId').resourceGroup]",
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', parameters('adrNamespaceId').subscription, parameters('adrNamespaceId').resourceGroup), 'Microsoft.Resources/deployments', concat(parameters('resourceSlug'), '_namespaceDevices_1'))]"
+      ]
+    }
+  }
+}
