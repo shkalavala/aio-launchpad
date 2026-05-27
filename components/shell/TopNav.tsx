@@ -12,9 +12,11 @@ const NAV = [
   { href: "/fleet", label: "Fleet" },
   { href: "/releases", label: "Releases" },
   { href: "/apps", label: "Apps & Modules" },
+  { href: "/resources", label: "Resources" },
   { href: "/rollout", label: "Rollout" },
   { href: "/secrets", label: "Secrets" },
   { href: "/developer", label: "Source" },
+  { href: "/connect", label: "Connect" },
 ];
 
 /**
