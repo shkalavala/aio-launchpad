@@ -61,3 +61,7 @@ logs/
 private/
 context/clone_aio-*.json
 
+
+# Belt-and-suspenders: never commit accidental .git backups
+.git.archive-*
+
