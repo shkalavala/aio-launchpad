@@ -13,6 +13,7 @@ _(empty — pick from Candidates below)_
 
 ## Candidates (unranked)
 
+- **Pick rollout payload directly on `/rollout`.** Today you have to go to the source page (`/resources`, sample apps, etc.) to multi-select, then come back. The rollout page should let you pick *what's being rolled out* inline for every kind: AIO resources (multi-select with drift filter, owning-site preview), sample apps, ARM modules, target release. Same applies to install. The picker would replace today's "no payload picked — go open X" empty-state. Probably an inline drawer or modal per kind.
 - **Real-repo connect (Step A).** Replace the `MANIFEST_FILES` fixture in [lib/fixtures/manifests.ts](lib/fixtures/manifests.ts) with live read-only reads from a hardcoded public Scale Kit fork via the GitHub Contents API. No auth, no writes. ~2 hr. Parked 2026-05-26 — do the walkthrough audit first.
 - **Real-repo connect (Step B).** Authenticated write path: branch + commit + PR back to the connected Scale Kit fork from inside Launchpad.
 - **Apps / Helm surface.** First-class view of customer Helm workloads layered on top of AIO (currently absent — only AIO components are modeled).

@@ -124,7 +124,7 @@ const STEPS: Step[] = [
   {
     title: "Step 2 — Install AIO via the CLI",
     subtitle:
-      "Once prereqs are in place, deploying AIO is a sequence of ~17 az commands plus per-secret loops. Each one is correct in isolation. Together they're a multi-hour ritual per cluster.",
+      "Once prereqs are in place, deploying AIO is about a dozen az commands per cluster plus a per-secret loop. The identity wiring, federation, and role assignments are largely abstracted inside `az iot ops init` / `create` / `secretsync enable` — the pain is ordering them, threading the right IDs through, and repeating it per site.",
     render: () => <CommandStep />,
   },
   {
@@ -223,8 +223,9 @@ function PrereqStep() {
           </div>
           <p className="text-[13px] text-fg">
             A mid-size manufacturer typically runs <span className="font-semibold">25–30 factories</span>.
-            Multiply each prereq by that and the small choices become a coordination problem
-            nobody owns end to end.
+            Subscription RPs are a one-time setup — the <span className="font-semibold">per-cluster</span> work
+            (tooling, cluster, Arc, identities, KV, Schema Registry) is what multiplies, and it's where
+            coordination breaks down.
           </p>
         </div>
 
@@ -382,17 +383,18 @@ function MathStep() {
         <div className="mt-4 flex flex-wrap items-baseline gap-x-4 gap-y-2 font-mono text-fg">
           <Cell value="28" label="factories" />
           <span className="text-fg-subtle">×</span>
-          <Cell value="15" label="prereqs" />
+          <Cell value="11" label="per-cluster prereqs" />
           <span className="text-fg-subtle">×</span>
-          <Cell value="17" label="commands" />
+          <Cell value="~12" label="az commands" />
           <span className="text-fg-subtle">=</span>
           <div className="rounded bg-danger-subtle px-3 py-1.5 text-[18px] font-semibold text-danger-fg">
             a multi-week project
           </div>
         </div>
         <p className="mt-4 text-[13px] text-fg-muted">
-          Scale Kit takes most of this on — commands 4–14 are Bicep, sites deploy in parallel by
-          selector, versions are pinned per release. What it doesn’t do: register subscription RPs,
+          Subscription RPs are excluded — those are a one-time setup per subscription, not
+          fleet-multiplied. Scale Kit takes most of the rest on — commands 4–14 are Bicep, sites
+          deploy in parallel by selector, versions are pinned per release. What it doesn’t do:
           stand up the cluster or Arc-connect it, give you a fleet rollup, or wrap upgrades in rings
           / blast-radius / pause-continue / health gates. Those are the gaps Launchpad fills.
         </p>
@@ -404,7 +406,7 @@ function MathStep() {
           tone="danger"
           tag="Today"
           title="Manual CLI"
-          summary="~17 commands per cluster, no rollup, no rings, no gates."
+          summary="~12 az commands per cluster, plus per-secret loops. Identity wiring is abstracted by the CLI, but ordering, IDs, and repetition are still on you. No rollup, no rings, no gates."
           owns={[
             "Everything — prereqs, install, upgrade, secrets, config",
           ]}
