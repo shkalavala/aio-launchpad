@@ -9,11 +9,13 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  AlertTriangle,
   CheckCircle2,
   GitPullRequest,
   Layers,
   RefreshCw,
   Rocket,
+  ShieldCheck,
   Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -34,6 +36,7 @@ export default function ResourcesPage() {
   const fleetRepo = useAppStore((s) => s.fleetRepo);
 
   const [filter, setFilter] = useState<Filter>("All");
+  const [driftOnly, setDriftOnly] = useState(false);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [flash, setFlash] = useState<string | null>(null);
@@ -45,9 +48,15 @@ export default function ResourcesPage() {
     return c;
   }, []);
 
+  const driftCount = useMemo(
+    () => AIO_RESOURCES.filter((r) => r.syncStatus === "drift").length,
+    [],
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return AIO_RESOURCES.filter((r) => {
+      if (driftOnly && r.syncStatus !== "drift") return false;
       if (filter !== "All" && r.category !== filter) return false;
       if (!q) return true;
       return (
@@ -56,7 +65,7 @@ export default function ResourcesPage() {
         r.armType.toLowerCase().includes(q)
       );
     });
-  }, [filter, query]);
+  }, [filter, driftOnly, query]);
 
   function toggleRow(id: string) {
     setSelected((prev) => {
@@ -93,6 +102,13 @@ export default function ResourcesPage() {
   const someSelected =
     filtered.some((r) => selected.has(r.id)) && !allSelected;
   const selectedCount = selected.size;
+  const driftSelectedCount = useMemo(() => {
+    let n = 0;
+    for (const r of AIO_RESOURCES) {
+      if (selected.has(r.id) && r.syncStatus === "drift") n++;
+    }
+    return n;
+  }, [selected]);
   const repoLabel = fleetRepo.selectedRepo ?? "(no fleet repo configured)";
 
   return (
@@ -136,20 +152,31 @@ export default function ResourcesPage() {
       {/* Filter chips */}
       <div className="flex flex-wrap items-center gap-2">
         <FilterChip
-          active={filter === "All"}
-          onClick={() => setFilter("All")}
+          active={filter === "All" && !driftOnly}
+          onClick={() => {
+            setFilter("All");
+            setDriftOnly(false);
+          }}
           label="All"
           count={counts.All}
         />
         {RESOURCE_CATEGORIES.filter((c) => counts[c] > 0).map((c) => (
           <FilterChip
             key={c}
-            active={filter === c}
-            onClick={() => setFilter(c)}
+            active={filter === c && !driftOnly}
+            onClick={() => {
+              setFilter(c);
+              setDriftOnly(false);
+            }}
             label={c}
             count={counts[c] ?? 0}
           />
         ))}
+        <DriftChip
+          active={driftOnly}
+          count={driftCount}
+          onClick={() => setDriftOnly((v) => !v)}
+        />
         <div className="ml-auto w-64">
           <Input
             placeholder="Search resources…"
@@ -215,6 +242,19 @@ export default function ResourcesPage() {
             Deploy to ARM
           </Button>
           <Button
+            variant="default"
+            size="sm"
+            disabled={driftSelectedCount === 0}
+            onClick={() =>
+              flashAction(
+                `Mock: opened reconcile PR for ${driftSelectedCount} drifted resource${driftSelectedCount === 1 ? "" : "s"} to ${fleetRepo.selectedRepo ?? "<repo>"}`,
+              )
+            }
+          >
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Reconcile drift
+          </Button>
+          <Button
             variant="ghost"
             size="sm"
             onClick={() => flashAction("Mock: refreshed (fixture data only)")}
@@ -246,6 +286,7 @@ export default function ResourcesPage() {
               <Th>Resource group</Th>
               <Th>Location</Th>
               <Th>State</Th>
+              <Th>Sync</Th>
             </tr>
           </thead>
           <tbody>
@@ -261,7 +302,7 @@ export default function ResourcesPage() {
             {filtered.length === 0 && (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   className="px-3 py-6 text-center text-fg-muted"
                 >
                   No resources match this filter.
@@ -331,6 +372,56 @@ function Th({ children }: { children: React.ReactNode }) {
   return <th className="px-3 py-2 text-left font-semibold">{children}</th>;
 }
 
+function DriftChip({
+  active,
+  count,
+  onClick,
+}: {
+  active: boolean;
+  count: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Show only resources whose live state differs from the fleet repo"
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors ${
+        active
+          ? "border-warning bg-warning/15 text-warning"
+          : "border-warning/40 bg-surface text-warning hover:bg-warning/10"
+      }`}
+    >
+      <AlertTriangle className="h-3 w-3" />
+      Drift only
+      <span
+        className={`rounded-full px-1.5 text-[10px] font-semibold ${
+          active ? "bg-warning/25 text-warning" : "bg-warning/15 text-warning"
+        }`}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function SyncBadge({ status }: { status: AioResource["syncStatus"] }) {
+  if (status === "drift") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning">
+        <AlertTriangle className="h-3 w-3" />
+        Drift
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] text-fg-muted">
+      <span className="h-1.5 w-1.5 rounded-full bg-success" />
+      In sync
+    </span>
+  );
+}
+
 function ResourceRow({
   r,
   checked,
@@ -373,6 +464,9 @@ function ResourceRow({
       <td className="px-3 py-2 text-fg-muted">{r.location}</td>
       <td className="px-3 py-2">
         <span className="font-semibold text-success">{r.state}</span>
+      </td>
+      <td className="px-3 py-2">
+        <SyncBadge status={r.syncStatus} />
       </td>
     </tr>
   );

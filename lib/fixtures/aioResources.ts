@@ -40,6 +40,12 @@ export interface AioResource {
   resourceGroup: string;
   location: string;
   state: "Succeeded" | "Failed" | "Updating";
+  /**
+   * Synthetic drift status — live ARM resource vs the corresponding Bicep in
+   * the connected fleet repo. Deterministic hash so the marked rows are
+   * stable across reloads (and demo-screenshot-friendly).
+   */
+  syncStatus: "in-sync" | "drift";
   /** Raw ARM resource JSON from the clone — used to render a Bicep preview. */
   raw: Record<string, unknown>;
   /** apiVersion if known. */
@@ -181,6 +187,16 @@ function isPortable(armType: string): boolean {
   return !NON_PORTABLE_TYPES.has(armType.toLowerCase());
 }
 
+// Deterministic ~18% drift rate from a cheap string hash on the id.
+function syntheticDrift(id: string): "in-sync" | "drift" {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = (h * 16777619) >>> 0;
+  }
+  return h % 100 < 18 ? "drift" : "in-sync";
+}
+
 function flatten(): AioResource[] {
   const out: AioResource[] = [];
   const resources = (clone as unknown as { resources?: Record<string, OuterResource> })
@@ -193,8 +209,9 @@ function flatten(): AioResource[] {
         if (!r.type) continue;
         if (!isPortable(r.type)) continue;
         const { category, displayType } = categorize(r.type);
+        const id = `${groupKey}-${counter++}`;
         out.push({
-          id: `${groupKey}-${counter++}`,
+          id,
           name: cleanName(r.name ?? ""),
           armType: r.type,
           displayType,
@@ -203,6 +220,7 @@ function flatten(): AioResource[] {
           resourceGroup: RESOURCE_GROUP,
           location: r.location?.includes("parameters") ? DEFAULT_LOCATION : r.location ?? DEFAULT_LOCATION,
           state: "Succeeded",
+          syncStatus: syntheticDrift(id),
           raw: r as Record<string, unknown>,
           apiVersion: r.apiVersion,
         });
@@ -212,8 +230,9 @@ function flatten(): AioResource[] {
       const { category, displayType } = categorize(outer.type);
       // Skip pure deployment wrappers — they're scaffolding, not resources.
       if (outer.type.toLowerCase() === "microsoft.resources/deployments") continue;
+      const id = `${groupKey}-${counter++}`;
       out.push({
-        id: `${groupKey}-${counter++}`,
+        id,
         name: cleanName(outer.name ?? groupKey),
         armType: outer.type,
         displayType,
@@ -222,6 +241,7 @@ function flatten(): AioResource[] {
         resourceGroup: RESOURCE_GROUP,
         location: DEFAULT_LOCATION,
         state: "Succeeded",
+        syncStatus: syntheticDrift(id),
         raw: outer as unknown as Record<string, unknown>,
       });
     }
