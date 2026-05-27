@@ -8,7 +8,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -48,11 +48,15 @@ export default function ResourcesPage() {
 
 function ResourcesPageInner() {
   const fleetRepo = useAppStore((s) => s.fleetRepo);
+  const setRolloutKind = useAppStore((s) => s.setRolloutKind);
+  const setRolloutResourceIds = useAppStore((s) => s.setRolloutResourceIds);
+  const router = useRouter();
   const searchParams = useSearchParams();
   const siteParam = searchParams?.get("site") ?? null;
+  const driftOnlyParam = searchParams?.get("driftOnly") === "1";
 
   const [filter, setFilter] = useState<Filter>("All");
-  const [driftOnly, setDriftOnly] = useState(false);
+  const [driftOnly, setDriftOnly] = useState(driftOnlyParam);
   const [driftSource, setDriftSource] = useState<"snapshot" | "live">(
     "snapshot",
   );
@@ -254,6 +258,24 @@ function ResourcesPageInner() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={selectedCount === 0}
+            onClick={() => {
+              setRolloutKind("resource");
+              setRolloutResourceIds(Array.from(selected));
+              router.push("/rollout");
+            }}
+            title={
+              selectedCount === 0
+                ? "Select one or more resources to roll out"
+                : `Roll the git state of ${selectedCount} resource${selectedCount === 1 ? "" : "s"} out to selected sites, in rings`
+            }
+          >
+            <Rocket className="h-3.5 w-3.5" />
+            Roll out {selectedCount > 0 ? `${selectedCount} →` : "→"}
+          </Button>
           <Button
             variant="subtle"
             size="sm"

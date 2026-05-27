@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Search, ArrowUpCircle, Package, Wrench, RotateCcw, Sprout } from "lucide-react";
+import { Search, ArrowUpCircle, Cloud, Package, Wrench, RotateCcw, Sprout } from "lucide-react";
 import { CommandBar } from "@/components/shell/CommandBar";
 import { Button } from "@/components/ui/Button";
 import { useAppStore } from "@/store/useAppStore";
@@ -35,6 +35,7 @@ export function UpgradeCommandBar({ targetCount, releaseSnapshotForSelected }: P
   const targetReleaseId = useAppStore((s) => s.targetReleaseId);
   const rolloutAppId = useAppStore((s) => s.rolloutAppId);
   const rolloutArmId = useAppStore((s) => s.rolloutArmId);
+  const rolloutResourceIds = useAppStore((s) => s.rolloutResourceIds);
   const rolloutStatus = useAppStore((s) => s.rolloutStatus);
   const startRollout = useAppStore((s) => s.startRollout);
   const resetRollout = useAppStore((s) => s.resetRollout);
@@ -79,6 +80,15 @@ export function UpgradeCommandBar({ targetCount, releaseSnapshotForSelected }: P
         ctaIcon: Sprout,
         payloadOk: !!targetReleaseId,
         payloadHint: "Pick an install release above",
+      };
+    }
+    if (rolloutKind === "resource") {
+      const n = rolloutResourceIds.length;
+      return {
+        ctaLabel: n === 0 ? "Re-apply resources" : `Re-apply ${n} resource${n === 1 ? "" : "s"}`,
+        ctaIcon: Cloud,
+        payloadOk: n > 0,
+        payloadHint: "Select resources on /resources first",
       };
     }
     return {

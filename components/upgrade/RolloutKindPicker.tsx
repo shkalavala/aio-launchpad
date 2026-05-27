@@ -1,14 +1,16 @@
 "use client";
 
-import { ArrowUpCircle, Package, Wrench, Sprout } from "lucide-react";
+import Link from "next/link";
+import { ArrowUpCircle, Cloud, Package, Wrench, Sprout } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { RELEASES, DEFAULT_RELEASE } from "@/lib/fixtures/releases";
 import { SAMPLE_APPS } from "@/lib/fixtures/sampleApps";
 import { ARM_MODULES } from "@/lib/fixtures/armModules";
+import { AIO_RESOURCES } from "@/lib/fixtures/aioResources";
 import type { AioReleaseId } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type Kind = "release" | "app" | "arm" | "install";
+type Kind = "release" | "app" | "arm" | "install" | "resource";
 
 interface Props {
   locked: boolean;
@@ -33,6 +35,8 @@ export function RolloutKindPicker({ locked }: Props) {
   const setAppId = useAppStore((s) => s.setRolloutAppId);
   const armId = useAppStore((s) => s.rolloutArmId);
   const setArmId = useAppStore((s) => s.setRolloutArmId);
+  const resourceIds = useAppStore((s) => s.rolloutResourceIds);
+  const setResourceIds = useAppStore((s) => s.setRolloutResourceIds);
 
   const tabs: Array<{ id: Kind; label: string; icon: typeof ArrowUpCircle; hint: string }> = [
     {
@@ -58,6 +62,12 @@ export function RolloutKindPicker({ locked }: Props) {
       label: "ARM module",
       icon: Wrench,
       hint: "Apply a targeted post-deployment Bicep / config change",
+    },
+    {
+      id: "resource",
+      label: "Resource",
+      icon: Cloud,
+      hint: "Re-apply git state for selected AIO resources (Dataflows, Assets, Endpoints…) across sites",
     },
   ];
 
@@ -190,6 +200,38 @@ export function RolloutKindPicker({ locked }: Props) {
             )}
           </PayloadRow>
         )}
+
+        {kind === "resource" && (
+          <PayloadRow label="Resources">
+            {resourceIds.length === 0 ? (
+              <span className="text-[11px] text-fg-subtle">
+                No resources picked. Open{" "}
+                <Link href="/resources?driftOnly=1" className="text-accent underline-offset-2 hover:underline">
+                  Resources
+                </Link>{" "}
+                to multi-select drifted resources, then “Roll out N →” back here.
+              </span>
+            ) : (
+              <>
+                <span className="inline-flex items-center gap-1 rounded-sm border border-accent bg-accent-subtle px-2 py-0.5 text-[12px] font-medium text-accent">
+                  {resourceIds.length} resource{resourceIds.length === 1 ? "" : "s"} selected
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setResourceIds([])}
+                  disabled={locked}
+                  className="text-[11px] text-fg-subtle hover:text-danger-fg disabled:opacity-60"
+                  title="Clear resource selection"
+                >
+                  clear
+                </button>
+                <span className="text-[11px] text-fg-subtle">
+                  {summariseResourceSelection(resourceIds)}
+                </span>
+              </>
+            )}
+          </PayloadRow>
+        )}
       </div>
     </section>
   );
@@ -202,4 +244,16 @@ function PayloadRow({ label, children }: { label: string; children: React.ReactN
       {children}
     </label>
   );
+}
+
+/** "2 Dataflow, 1 Asset" — count by category for the picker hint. */
+function summariseResourceSelection(ids: string[]): string {
+  const byCat: Record<string, number> = {};
+  for (const id of ids) {
+    const r = AIO_RESOURCES.find((x) => x.id === id);
+    if (!r) continue;
+    byCat[r.category] = (byCat[r.category] ?? 0) + 1;
+  }
+  const parts = Object.entries(byCat).map(([cat, n]) => `${n} ${cat}`);
+  return parts.length === 0 ? "" : parts.join(", ");
 }

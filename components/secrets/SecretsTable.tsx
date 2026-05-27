@@ -25,14 +25,21 @@ interface Props {
 
 /**
  * Per-site secrets table. Renders the SecretEntry array as rows + an inline
- * "+ Add secret" affordance. Each row exposes a `createInKv` toggle whose
- * polarity matches Scale Kit: on (default) = pipeline creates the secret in
- * the env-matched central KV (dev sites → dev vault, prod sites → prod
- * vault); off = the secret already exists in the KV and we only reference it.
+ * "+ Add secret" affordance.
  *
- * Status semantics are intentionally simple: synced = same as fixture,
- * pending = added or edited this session, error = metadata fails validation
- * (e.g. invalid secretName).
+ * Three independent signals are surfaced as separate columns to avoid the
+ * old "Create new + SYNCED" contradiction:
+ *
+ *  1. In KV          — actual current presence in the env-matched central KV
+ *                      (derived from syncStatus: "missing-in-kv" / "never"
+ *                      mean not present, everything else means present).
+ *  2. Manage in KV   — pipeline intent (idempotent). On (default) = pipeline
+ *                      will ensure-create / update this secret in KV on each
+ *                      run. Off = read-only reference; pipeline never writes.
+ *  3. Status         — cluster-side sync state from the CSI driver.
+ *
+ * Status semantics: synced = same as fixture, pending = added or edited this
+ * session, error = metadata fails validation (e.g. invalid secretName).
  */
 export function SecretsTable({ siteName, entries, fixtureNames, hasOverlay, onChange }: Props) {
   const [draftName, setDraftName] = useState("");
@@ -122,8 +129,8 @@ export function SecretsTable({ siteName, entries, fixtureNames, hasOverlay, onCh
               <Th>Secret name (in Key Vault)</Th>
               <Th>Kubernetes Secret</Th>
               <Th>Key</Th>
-              <Th>Vault state</Th>
-              <Th>Create in KV</Th>
+              <Th>In KV</Th>
+              <Th>Manage in KV</Th>
               <Th>Status</Th>
               <Th>{""}</Th>
             </tr>
@@ -139,6 +146,8 @@ export function SecretsTable({ siteName, entries, fixtureNames, hasOverlay, onCh
             {entries.map((entry, idx) => {
               const status = statusFor(entry);
               const willCreate = entry.createInKv !== false;
+              const presentInKv =
+                entry.syncStatus !== "missing-in-kv" && entry.syncStatus !== "never";
               return (
                 <tr
                   key={`${entry.secretName}-${idx}`}
@@ -158,11 +167,11 @@ export function SecretsTable({ siteName, entries, fixtureNames, hasOverlay, onCh
                       <span
                         className={cn(
                           "h-1.5 w-1.5 rounded-full",
-                          willCreate ? "bg-accent" : "bg-success-fg",
+                          presentInKv ? "bg-success-fg" : "bg-warning-fg",
                         )}
                         aria-hidden
                       />
-                      {willCreate ? "Create new" : "Already in KV"}
+                      {presentInKv ? "Present" : "Missing"}
                     </span>
                   </Td>
                   <Td>
@@ -176,8 +185,8 @@ export function SecretsTable({ siteName, entries, fixtureNames, hasOverlay, onCh
                           : "border-border bg-bg justify-start",
                       )}
                       title={willCreate
-                        ? `On (default): pipeline creates this secret in the ${kvForSite(siteName).env} central KV`
-                        : "Off: secret already exists in the KV — we only reference it"}
+                        ? `On (default): pipeline ensures this secret exists in the ${kvForSite(siteName).env} central KV on each run (idempotent — safe whether or not it's already present)`
+                        : "Off: read-only reference. Pipeline will never write this secret to KV."}
                     >
                       <span className="m-[2px] block h-3 w-3 rounded-full bg-bg" />
                     </button>
@@ -231,7 +240,7 @@ export function SecretsTable({ siteName, entries, fixtureNames, hasOverlay, onCh
                 />
               </Td>
               <Td>
-                <span className="text-fg-subtle">{draftCreateInKv ? "Create new" : "Already in KV"}</span>
+                <span className="text-fg-subtle">{draftCreateInKv ? "Will be created" : "Not managed"}</span>
               </Td>
               <Td>
                 <button
@@ -243,7 +252,7 @@ export function SecretsTable({ siteName, entries, fixtureNames, hasOverlay, onCh
                       ? "border-accent bg-accent justify-end"
                       : "border-border bg-bg justify-start",
                   )}
-                  title="On (default): pipeline creates this secret in the KV. Off: already exists in KV."
+                  title="On (default): pipeline ensures this secret exists in KV on each run (idempotent). Off: read-only reference — pipeline never writes."
                 >
                   <span className="m-[2px] block h-3 w-3 rounded-full bg-bg" />
                 </button>

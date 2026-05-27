@@ -9,7 +9,7 @@
 
 import type { AioReleaseId } from "@/lib/types";
 
-export type RolloutKind = "release" | "install" | "app" | "arm";
+export type RolloutKind = "release" | "install" | "app" | "arm" | "resource";
 export type RolloutOutcome = "succeeded" | "failed" | "cancelled";
 
 export interface RolloutRecord {
@@ -21,6 +21,8 @@ export interface RolloutRecord {
   appName?: string;
   /** Set when kind === "arm". */
   armName?: string;
+  /** Set when kind === "resource". Short label like "3 dataflows". */
+  resourceLabel?: string;
   siteCount: number;
   /** Human label for the ring strategy used (matches lib/rings.ts labels). */
   ringStrategy?: string;

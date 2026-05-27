@@ -92,6 +92,8 @@ function describeTarget(r: RolloutRecord): string {
       return r.appName ?? "App deploy";
     case "arm":
       return r.armName ?? "ARM module";
+    case "resource":
+      return r.resourceLabel ?? "Resource re-apply";
   }
 }
 
@@ -100,6 +102,7 @@ const KIND_LABEL: Record<RolloutKind, string> = {
   install: "install",
   app: "app",
   arm: "module",
+  resource: "resource",
 };
 
 function KindChip({ kind }: { kind: RolloutKind }) {

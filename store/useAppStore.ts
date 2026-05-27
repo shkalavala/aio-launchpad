@@ -52,8 +52,8 @@ interface AppState {
    * machinery but carry different payload identifiers and skip release-specific
    * UI (BlastRadius, version diff).
    */
-  rolloutKind: "release" | "app" | "arm" | "install";
-  setRolloutKind: (k: "release" | "app" | "arm" | "install") => void;
+  rolloutKind: "release" | "app" | "arm" | "install" | "resource";
+  setRolloutKind: (k: "release" | "app" | "arm" | "install" | "resource") => void;
 
   /** Payload id when kind === "app" (lib/fixtures/sampleApps.ts). */
   rolloutAppId: string | null;
@@ -62,6 +62,10 @@ interface AppState {
   /** Payload id when kind === "arm" (lib/fixtures/armModules.ts). */
   rolloutArmId: string | null;
   setRolloutArmId: (id: string | null) => void;
+
+  /** Payload ids when kind === "resource" (lib/fixtures/aioResources.ts). Re-apply git state for selected concrete resources to the targeted sites. */
+  rolloutResourceIds: string[];
+  setRolloutResourceIds: (ids: string[]) => void;
 
   targetReleaseId: AioReleaseId | null;
   setTargetRelease: (id: AioReleaseId | null) => void;
@@ -245,6 +249,9 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   rolloutArmId: null,
   setRolloutArmId: (id) => set({ rolloutArmId: id }),
 
+  rolloutResourceIds: [],
+  setRolloutResourceIds: (ids) => set({ rolloutResourceIds: ids }),
+
   rings: [],
   setRings: (rings) => set({ rings }),
 
@@ -262,13 +269,14 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   _verifyStartMs: null,
 
   startRollout: (snapshot?: Record<string, AioReleaseId>) => {
-    const { rings, rolloutKind, targetReleaseId, rolloutAppId, rolloutArmId } = get();
+    const { rings, rolloutKind, targetReleaseId, rolloutAppId, rolloutArmId, rolloutResourceIds } = get();
     // Each rollout kind needs its payload to be set; rings must be planned.
     const hasPayload =
       (rolloutKind === "release" && !!targetReleaseId) ||
       (rolloutKind === "install" && !!targetReleaseId) ||
       (rolloutKind === "app" && !!rolloutAppId) ||
-      (rolloutKind === "arm" && !!rolloutArmId);
+      (rolloutKind === "arm" && !!rolloutArmId) ||
+      (rolloutKind === "resource" && rolloutResourceIds.length > 0);
     if (!hasPayload || rings.length === 0) return;
 
     const siteStatus: Record<string, SiteStatus> = {};
@@ -599,6 +607,10 @@ function buildSessionRecord(
   if (s.rolloutKind === "arm") {
     const mod = ARM_MODULES.find((m) => m.id === s.rolloutArmId);
     return { ...base, kind: "arm", armName: mod?.name ?? "ARM module" };
+  }
+  if (s.rolloutKind === "resource") {
+    const n = s.rolloutResourceIds.length;
+    return { ...base, kind: "resource", resourceLabel: `${n} resource${n === 1 ? "" : "s"} re-applied from git` };
   }
   if (s.rolloutKind === "install") {
     return { ...base, kind: "install", releaseId: s.targetReleaseId ?? undefined };

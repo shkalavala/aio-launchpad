@@ -54,6 +54,7 @@ function RolloutPageInner() {
   const rolloutKind = useAppStore((s) => s.rolloutKind);
   const rolloutAppId = useAppStore((s) => s.rolloutAppId);
   const rolloutArmId = useAppStore((s) => s.rolloutArmId);
+  const rolloutResourceIds = useAppStore((s) => s.rolloutResourceIds);
   const selectedSiteNames = useAppStore((s) => s.selectedSiteNames);
   const setSelectedSiteNames = useAppStore((s) => s.setSelectedSiteNames);
   const selectorText = useAppStore((s) => s.selectorText);
@@ -250,6 +251,16 @@ function RolloutPageInner() {
         changeLabel: mod ? `Apply ${mod.name}` : "Apply module",
       };
     }
+    if (rolloutKind === "resource") {
+      const n = rolloutResourceIds.length;
+      const label = n === 0 ? "Re-apply resources" : `Re-apply ${n} resource${n === 1 ? "" : "s"}`;
+      return {
+        pageTitle: n === 0 ? "Re-apply resources from git" : `${label} from git`,
+        pageSubtitle:
+          "Re-applies the canonical git state for the selected AIO resources to every targeted site. Same ring/gate/verify pipeline as an AIO upgrade — sites stay live, drift is reconciled in batches.",
+        changeLabel: label,
+      };
+    }
     if (rolloutKind === "install") {
       return {
         pageTitle: targetReleaseId ? `Install AIO release · ${targetReleaseId}` : "Install AIO",
@@ -264,7 +275,7 @@ function RolloutPageInner() {
         "In-place release pin update across a selector of sites. Staged in rings, gated between rings, health-verified before continuing. Live cluster, no rebuild, no identity loss.",
       changeLabel: undefined,
     };
-  }, [rolloutKind, rolloutAppId, rolloutArmId, targetReleaseId]);
+  }, [rolloutKind, rolloutAppId, rolloutArmId, rolloutResourceIds, targetReleaseId]);
 
   const isSingleSite = selectedSites.length === 1;
 
