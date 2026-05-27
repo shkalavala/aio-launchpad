@@ -124,7 +124,7 @@ const STEPS: Step[] = [
   {
     title: "Step 2 — Install AIO via the CLI",
     subtitle:
-      "Once prereqs are in place, deploying AIO is about a dozen az commands per cluster plus a per-secret loop. The identity wiring, federation, and role assignments are largely abstracted inside `az iot ops init` / `create` / `secretsync enable` — the pain is ordering them, threading the right IDs through, and repeating it per site.",
+      "Once prereqs are in place, the core install is about 14 az commands per cluster plus a per-secret loop. Identity wiring, federation, and role assignments are largely abstracted inside `az iot ops init` / `create` / `secretsync enable` — the pain is ordering them, threading the right IDs through, and repeating it per site. (Post-install per-site config — dataflow profiles, asset endpoints, OPC UA — is its own surface, not counted here.)",
     render: () => <CommandStep />,
   },
   {
@@ -277,9 +277,6 @@ const COMMANDS: CmdLine[] = [
   { owner: "scale-kit", step: 12, desc: "Create the AIO instance", cmd: "az iot ops create --cluster myCluster --resource-group myRg --name myAioInstance --sr-resource-id <SCHEMA_REGISTRY_ID>", note: "Scale Kit: aio-instance step — inputs fan in from schema-registry / adr-ns / aio-enablement" },
   { owner: "scale-kit", step: 13, desc: "Enable secret sync on instance", cmd: "az iot ops secretsync enable --instance myAioInstance --resource-group myRg --kv-resource-id <KV_ID> --mi-user-assigned <MI_ID>", note: "Scale Kit: _secretsync.yaml or standalone secretsync.yaml" },
   { owner: "scale-kit", step: 14, desc: "Sync each secret (loop)", cmd: "for s in $SECRETS; do az iot ops secretsync apply --name $s ...; done", note: "Scale Kit: sync-secrets step + input-sync-secrets.yaml — declarative list reconciles" },
-  { owner: "scale-kit", step: 15, desc: "Configure dataflow profile", cmd: "az iot ops dataflow profile create ...", note: "Scale Kit: per-site custom manifest on top of aio-install" },
-  { owner: "scale-kit", step: 16, desc: "Configure asset endpoint", cmd: "az iot ops asset endpoint create ...", note: "Scale Kit: per-site custom manifest" },
-  { owner: "scale-kit", step: 17, desc: "Configure OPC UA connector + auth", cmd: "az iot ops connector opcua trust add ...", note: "Scale Kit: aio-with-opc-ua sample composes this; trust certs still per-PLC" },
 ];
 
 function CommandStep() {
@@ -385,7 +382,7 @@ function MathStep() {
           <span className="text-fg-subtle">×</span>
           <Cell value="11" label="per-cluster prereqs" />
           <span className="text-fg-subtle">×</span>
-          <Cell value="~12" label="az commands" />
+          <Cell value="~14" label="az commands" />
           <span className="text-fg-subtle">=</span>
           <div className="rounded bg-danger-subtle px-3 py-1.5 text-[18px] font-semibold text-danger-fg">
             a multi-week project
@@ -406,7 +403,7 @@ function MathStep() {
           tone="danger"
           tag="Today"
           title="Manual CLI"
-          summary="~12 az commands per cluster, plus per-secret loops. Identity wiring is abstracted by the CLI, but ordering, IDs, and repetition are still on you. No rollup, no rings, no gates."
+          summary="~14 az commands per cluster, plus per-secret loops. Identity wiring is abstracted by the CLI, but ordering, IDs, and repetition are still on you. No rollup, no rings, no gates."
           owns={[
             "Everything — prereqs, install, upgrade, secrets, config",
           ]}
