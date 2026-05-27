@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -39,6 +39,14 @@ import { useAppStore } from "@/store/useAppStore";
 type Filter = "All" | AioResourceCategory;
 
 export default function ResourcesPage() {
+  return (
+    <Suspense fallback={null}>
+      <ResourcesPageInner />
+    </Suspense>
+  );
+}
+
+function ResourcesPageInner() {
   const fleetRepo = useAppStore((s) => s.fleetRepo);
   const searchParams = useSearchParams();
   const siteParam = searchParams?.get("site") ?? null;
