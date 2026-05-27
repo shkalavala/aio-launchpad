@@ -209,7 +209,7 @@ export const MOCK_EXISTING_REPOS: Array<{
 }> = [
   { fullName: "contoso-industries/aio-fleet-config", isFork: true, private: true },
   { fullName: "contoso-industries/iot-ops-experiments", isFork: false, private: true },
-  { fullName: "vincenzocaruso/doe-extensions-example-app", isFork: false, private: true },
+  { fullName: "contoso-industries/factory-dataflow-sandbox", isFork: false, private: true },
   { fullName: "Azure-Samples/azure-iot-operations-scale-kit", isFork: false, private: false },
 ];
 

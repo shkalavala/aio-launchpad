@@ -111,11 +111,20 @@ function categorize(armType: string): {
 // or "[parameters('instanceName')]" into a human-readable display name.
 function cleanName(raw: string): string {
   if (!raw) return "(unnamed)";
-  // concat(parameters('x'), '_suffix') → "(prefix)-suffix"
-  const concatMatch = raw.match(/concat\(\s*parameters\('([^']+)'\)\s*,\s*'([^']+)'/);
-  if (concatMatch) {
-    const suffix = concatMatch[2].replace(/^[_/]+/, "");
-    return suffix ? `${humanize(concatMatch[1])} · ${suffix}` : humanize(concatMatch[1]);
+  // concat(...) — pull the LAST string literal arg (the human-meaningful suffix).
+  // Handles e.g. concat(parameters('x'), '/foo'), concat(parameters('x').name, '/foo'),
+  // concat(parameters('x'), '_suffix'). Strips leading separators.
+  if (raw.includes("concat(")) {
+    const literals = [...raw.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+    // Drop literals that are themselves parameter names (single-quoted args to parameters(...)).
+    const paramArgs = new Set(
+      [...raw.matchAll(/parameters\('([^']+)'\)/g)].map((m) => m[1]),
+    );
+    const tail = literals.filter((l) => !paramArgs.has(l)).pop();
+    if (tail) {
+      const cleaned = tail.replace(/^[_/]+/, "");
+      if (cleaned) return cleaned;
+    }
   }
   // [parameters('foo')] → "foo" (humanized)
   const paramMatch = raw.match(/parameters\('([^']+)'\)/);
@@ -181,6 +190,10 @@ const NON_PORTABLE_TYPES = new Set([
   "microsoft.kubernetesconfiguration/extensions",
   "microsoft.extendedlocation/customlocations",
   "microsoft.authorization/roleassignments",
+  // The Instance resource itself is 1:1 with the AIO instance — not
+  // portable across instances, so it doesn't belong in a per-resource
+  // push/pull table.
+  "microsoft.iotoperations/instances",
 ]);
 
 function isPortable(armType: string): boolean {

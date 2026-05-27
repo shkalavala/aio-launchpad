@@ -11,12 +11,15 @@ import Link from "next/link";
 import {
   AlertTriangle,
   CheckCircle2,
+  Cloud,
+  Clock,
   GitPullRequest,
   Layers,
   RefreshCw,
   Rocket,
   ShieldCheck,
   Upload,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -37,6 +40,9 @@ export default function ResourcesPage() {
 
   const [filter, setFilter] = useState<Filter>("All");
   const [driftOnly, setDriftOnly] = useState(false);
+  const [driftSource, setDriftSource] = useState<"snapshot" | "live">(
+    "snapshot",
+  );
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [flash, setFlash] = useState<string | null>(null);
@@ -122,11 +128,12 @@ export default function ResourcesPage() {
           </div>
           <h1 className="text-[18px] font-semibold text-fg">Resources</h1>
           <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-fg-muted">
-            Azure IoT Operations ARM resources read from the live instance.
-            Select rows to commit to your fleet repo as Bicep, or deploy
-            repo-side Bicep back to ARM. Read-only prototype — actions are
-            no-ops; data is a fixture from{" "}
-            <span className="font-mono">az iot ops clone</span>.
+            Azure IoT Operations ARM resources for one instance. Select rows
+            to commit to your fleet repo as Bicep, or deploy repo-side Bicep
+            back to ARM. Read-only prototype — actions are no-ops; data is
+            a fixture from{" "}
+            <span className="font-mono">az iot ops clone</span>; drift values
+            are synthetic.
           </p>
         </div>
         <div className="shrink-0 text-right text-[12px] text-fg-muted">
@@ -177,12 +184,25 @@ export default function ResourcesPage() {
           count={driftCount}
           onClick={() => setDriftOnly((v) => !v)}
         />
-        <div className="ml-auto w-64">
-          <Input
-            placeholder="Search resources…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+        <div className="ml-auto flex items-center gap-3">
+          <DriftSourcePill
+            mode={driftSource}
+            onSwitch={(next) => {
+              setDriftSource(next);
+              if (next === "live") {
+                flashAction(
+                  "Mock: would request Azure subscription access to read live ARM state",
+                );
+              }
+            }}
           />
+          <div className="w-64">
+            <Input
+              placeholder="Search resources…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
@@ -368,6 +388,75 @@ function FilterChip({
   );
 }
 
+function DriftSourcePill({
+  mode,
+  onSwitch,
+}: {
+  mode: "snapshot" | "live";
+  onSwitch: (next: "snapshot" | "live") => void;
+}) {
+  const isLive = mode === "live";
+  return (
+    <div
+      className="inline-flex items-center gap-2 rounded-md border border-border bg-bg-subtle px-2 py-1 text-[11px]"
+      title="Where the drift comparison comes from. Snapshot = CI-exported state in the repo. Live = on-demand ARM read (requires Azure auth)."
+    >
+      <span className="font-medium uppercase tracking-wide text-fg-subtle">
+        Drift source
+      </span>
+      <div className="inline-flex items-center rounded border border-border-strong bg-surface p-0.5">
+        <PillSegment
+          active={!isLive}
+          onClick={() => onSwitch("snapshot")}
+          icon={<Clock className="h-3 w-3" />}
+        >
+          CI snapshot <span className="opacity-70">· 4h ago</span>
+        </PillSegment>
+        <PillSegment
+          active={isLive}
+          onClick={() => onSwitch("live")}
+          icon={isLive ? <Zap className="h-3 w-3" /> : <Cloud className="h-3 w-3" />}
+        >
+          {isLive ? (
+            <>
+              Live from Azure <span className="opacity-70">· just now</span>
+            </>
+          ) : (
+            <>Connect Azure for live</>
+          )}
+        </PillSegment>
+      </div>
+    </div>
+  );
+}
+
+function PillSegment({
+  active,
+  onClick,
+  icon,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 rounded px-2 py-1 font-medium transition-colors ${
+        active
+          ? "border border-border-strong bg-surface text-accent shadow-sm"
+          : "border border-transparent text-fg-muted hover:bg-bg-muted hover:text-fg"
+      }`}
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
+
 function Th({ children }: { children: React.ReactNode }) {
   return <th className="px-3 py-2 text-left font-semibold">{children}</th>;
 }
@@ -434,7 +523,7 @@ function ResourceRow({
   onOpen: () => void;
 }) {
   return (
-    <tr className="border-t border-border hover:bg-bg-subtle/60">
+    <tr className="border-t border-border align-top hover:bg-bg-subtle/60">
       <td className="px-3 py-2">
         <input
           type="checkbox"
@@ -447,7 +536,7 @@ function ResourceRow({
         <button
           type="button"
           onClick={onOpen}
-          className="font-mono text-[12px] text-fg hover:text-accent hover:underline"
+          className="text-left font-mono text-[12px] text-fg hover:text-accent hover:underline"
         >
           {r.name}
         </button>
@@ -460,8 +549,8 @@ function ResourceRow({
           {r.armType}
         </div>
       </td>
-      <td className="px-3 py-2 font-mono text-fg-muted">{r.resourceGroup}</td>
-      <td className="px-3 py-2 text-fg-muted">{r.location}</td>
+      <td className="whitespace-nowrap px-3 py-2 font-mono text-fg-muted">{r.resourceGroup}</td>
+      <td className="whitespace-nowrap px-3 py-2 text-fg-muted">{r.location}</td>
       <td className="px-3 py-2">
         <span className="font-semibold text-success">{r.state}</span>
       </td>
