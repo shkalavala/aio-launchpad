@@ -400,12 +400,12 @@ function MathStep() {
         </p>
       </section>
 
-      {/* Two-tier ownership comparison: today's reality is az CLI vs Scale Kit */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* Three-tier ownership comparison */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <TierCard
           tone="danger"
-          tag="Today · Path A"
-          title="Manual az CLI"
+          tag="Today"
+          title="Manual CLI"
           summary="~12 az commands per cluster, plus per-secret loops. Identity wiring is abstracted by the CLI, but ordering, IDs, and repetition are still on you. No rollup, no rings, no gates."
           owns={[
             "Everything — prereqs, install, upgrade, secrets, config",
@@ -414,8 +414,8 @@ function MathStep() {
         />
         <TierCard
           tone="warning"
-          tag="Today · Path B"
-          title="Scale Kit (Bicep + manifests)"
+          tag="Scale Kit"
+          title="Bicep + manifests for the AIO stack"
           summary="Composes the Bicep steps for the entire install + upgrade + secretsync surface; sites deploy in parallel by selector."
           owns={[
             "AIO + secrets managed identities, OIDC federation",
@@ -431,6 +431,21 @@ function MathStep() {
             "Fleet rollup / drift visibility across sites",
             "Upgrade rings, blast radius, pause / continue, health gates",
             "Secrets UX — still YAML + CI logs",
+          ]}
+        />
+        <TierCard
+          tone="accent"
+          tag="AIO Launchpad"
+          title="Fleet UI on top of Scale Kit"
+          summary="Same Scale Kit manifests underneath — Launchpad adds the surfaces that aren’t in the CLI or the kit."
+          owns={[
+            "Fleet rollup view across sites + releases + drift",
+            "Add-a-site with prereq status + template inheritance",
+            "Upgrade plan with rings, blast radius, pause / continue",
+            "Per-site secrets UI backed by central KV (sync-secrets manifest)",
+          ]}
+          leaves={[
+            "Subscription-level prereqs (RPs, k8s distro, cluster Arc-connect) — surfaced as status, not auto-provisioned",
           ]}
         />
       </div>
