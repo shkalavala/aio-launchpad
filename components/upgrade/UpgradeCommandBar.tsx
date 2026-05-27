@@ -85,10 +85,10 @@ export function UpgradeCommandBar({ targetCount, releaseSnapshotForSelected }: P
     if (rolloutKind === "resource") {
       const n = rolloutResourceIds.length;
       return {
-        ctaLabel: n === 0 ? "Re-apply resources" : `Re-apply ${n} resource${n === 1 ? "" : "s"}`,
+        ctaLabel: n === 0 ? "Re-apply AIO resources" : `Re-apply ${n} AIO resource${n === 1 ? "" : "s"}`,
         ctaIcon: Cloud,
         payloadOk: n > 0,
-        payloadHint: "Select resources on /resources first",
+        payloadHint: "Select AIO resources on /resources first",
       };
     }
     return {

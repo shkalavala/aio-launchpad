@@ -65,7 +65,7 @@ export function RolloutKindPicker({ locked }: Props) {
     },
     {
       id: "resource",
-      label: "Resource",
+      label: "AIO resources",
       icon: Cloud,
       hint: "Re-apply git state for selected AIO resources (Dataflows, Assets, Endpoints…) across sites",
     },
@@ -214,7 +214,7 @@ export function RolloutKindPicker({ locked }: Props) {
             ) : (
               <>
                 <span className="inline-flex items-center gap-1 rounded-sm border border-accent bg-accent-subtle px-2 py-0.5 text-[12px] font-medium text-accent">
-                  {resourceIds.length} resource{resourceIds.length === 1 ? "" : "s"} selected
+                  {resourceIds.length} AIO resource{resourceIds.length === 1 ? "" : "s"} selected
                 </span>
                 <button
                   type="button"

@@ -269,8 +269,8 @@ function ResourcesPageInner() {
             }}
             title={
               selectedCount === 0
-                ? "Select one or more resources to roll out"
-                : `Roll the git state of ${selectedCount} resource${selectedCount === 1 ? "" : "s"} out to selected sites, in rings`
+                ? "Select one or more AIO resources to roll out"
+                : `Roll the git state of ${selectedCount} AIO resource${selectedCount === 1 ? "" : "s"} out to selected sites, in rings`
             }
           >
             <Rocket className="h-3.5 w-3.5" />

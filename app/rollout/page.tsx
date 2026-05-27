@@ -253,9 +253,9 @@ function RolloutPageInner() {
     }
     if (rolloutKind === "resource") {
       const n = rolloutResourceIds.length;
-      const label = n === 0 ? "Re-apply resources" : `Re-apply ${n} resource${n === 1 ? "" : "s"}`;
+      const label = n === 0 ? "Re-apply AIO resources" : `Re-apply ${n} AIO resource${n === 1 ? "" : "s"}`;
       return {
-        pageTitle: n === 0 ? "Re-apply resources from git" : `${label} from git`,
+        pageTitle: n === 0 ? "Re-apply AIO resources from git" : `${label} from git`,
         pageSubtitle:
           "Re-applies the canonical git state for the selected AIO resources to every targeted site. Same ring/gate/verify pipeline as an AIO upgrade — sites stay live, drift is reconciled in batches.",
         changeLabel: label,

@@ -93,7 +93,7 @@ function describeTarget(r: RolloutRecord): string {
     case "arm":
       return r.armName ?? "ARM module";
     case "resource":
-      return r.resourceLabel ?? "Resource re-apply";
+      return r.resourceLabel ?? "AIO resource re-apply";
   }
 }
 
@@ -102,7 +102,7 @@ const KIND_LABEL: Record<RolloutKind, string> = {
   install: "install",
   app: "app",
   arm: "module",
-  resource: "resource",
+  resource: "aio resource",
 };
 
 function KindChip({ kind }: { kind: RolloutKind }) {

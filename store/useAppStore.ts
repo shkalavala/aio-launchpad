@@ -610,7 +610,7 @@ function buildSessionRecord(
   }
   if (s.rolloutKind === "resource") {
     const n = s.rolloutResourceIds.length;
-    return { ...base, kind: "resource", resourceLabel: `${n} resource${n === 1 ? "" : "s"} re-applied from git` };
+    return { ...base, kind: "resource", resourceLabel: `${n} AIO resource${n === 1 ? "" : "s"} re-applied from git` };
   }
   if (s.rolloutKind === "install") {
     return { ...base, kind: "install", releaseId: s.targetReleaseId ?? undefined };
