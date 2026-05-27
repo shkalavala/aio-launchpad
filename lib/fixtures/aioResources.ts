@@ -12,6 +12,7 @@
 // only exist to mirror the DoEGit-style table layout — no live ARM query.
 
 import clone from "@/context/clone_demo.json";
+import { FLEET } from "@/lib/fixtures/sites";
 
 export type AioResourceCategory =
   | "Instance"
@@ -48,6 +49,13 @@ export interface AioResource {
    * stable across reloads (and demo-screenshot-friendly).
    */
   syncStatus: "in-sync" | "drift";
+  /**
+   * Synthetic mapping: which fleet sites consume / are tagged with this
+   * resource. Derived from a deterministic hash so the per-site filter on
+   * the Resources page is stable across reloads. Reflects the reality that
+   * dataflows + endpoints often span multiple sites in a "shared" model.
+   */
+  owningSites: string[];
   /** Raw ARM resource JSON from the clone — used to render a Bicep preview. */
   raw: Record<string, unknown>;
   /** apiVersion if known. */
@@ -212,6 +220,41 @@ function syntheticDrift(id: string): "in-sync" | "drift" {
   return h % 100 < 18 ? "drift" : "in-sync";
 }
 
+// Reuse the FNV-style hash so a single seed string deterministically maps to
+// the same site set across reloads — important for stable demo screenshots.
+function hash32(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = (h * 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+
+const ALL_SITE_NAMES: string[] = FLEET.map((f) => f.site.name);
+
+/**
+ * Synthetic site ownership. Most ARM resources in a clone belong to one
+ * site; dataflows and broker listeners often span two. We pick 1–2 sites by
+ * deterministic hash so the per-site filter shows a meaningful, stable subset
+ * without overpromising fidelity. Marked explicitly as synthetic in the UI.
+ */
+function syntheticOwningSites(id: string, category: AioResourceCategory): string[] {
+  if (ALL_SITE_NAMES.length === 0) return [];
+  const h = hash32(id);
+  const primary = ALL_SITE_NAMES[h % ALL_SITE_NAMES.length];
+  // Dataflows / endpoints span two sites; everything else is single-site.
+  const isShared =
+    category === "Dataflow" ||
+    category === "Dataflow Endpoint" ||
+    category === "Dataflow Profile" ||
+    (category === "Broker" && (h >>> 8) % 3 === 0);
+  if (!isShared) return [primary];
+  const secondaryIdx = ((h >>> 16) + 1) % ALL_SITE_NAMES.length;
+  const secondary = ALL_SITE_NAMES[secondaryIdx];
+  return secondary === primary ? [primary] : [primary, secondary];
+}
+
 function flatten(): AioResource[] {
   const out: AioResource[] = [];
   const resources = (clone as unknown as { resources?: Record<string, OuterResource> })
@@ -236,6 +279,7 @@ function flatten(): AioResource[] {
           location: r.location?.includes("parameters") ? DEFAULT_LOCATION : r.location ?? DEFAULT_LOCATION,
           state: "Succeeded",
           syncStatus: syntheticDrift(id),
+          owningSites: syntheticOwningSites(id, category),
           raw: r as Record<string, unknown>,
           apiVersion: r.apiVersion,
         });
@@ -257,6 +301,7 @@ function flatten(): AioResource[] {
         location: DEFAULT_LOCATION,
         state: "Succeeded",
         syncStatus: syntheticDrift(id),
+        owningSites: syntheticOwningSites(id, category),
         raw: outer as unknown as Record<string, unknown>,
       });
     }
@@ -268,6 +313,32 @@ export const AIO_RESOURCES: AioResource[] = flatten();
 
 export const AIO_RESOURCE_RG = RESOURCE_GROUP;
 export const AIO_RESOURCE_INSTANCE_ID = META?.clonedInstanceId ?? "";
+
+/** Resources owned (synthetically) by a site. */
+export function resourcesForSite(siteName: string): AioResource[] {
+  return AIO_RESOURCES.filter((r) => r.owningSites.includes(siteName));
+}
+
+/** Drift count summary for a site (or set of sites). */
+export function resourceDriftForSites(siteNames: string[]): {
+  total: number;
+  drift: number;
+} {
+  if (siteNames.length === 0) {
+    return {
+      total: AIO_RESOURCES.length,
+      drift: AIO_RESOURCES.filter((r) => r.syncStatus === "drift").length,
+    };
+  }
+  const set = new Set(siteNames);
+  const owned = AIO_RESOURCES.filter((r) =>
+    r.owningSites.some((s) => set.has(s)),
+  );
+  return {
+    total: owned.length,
+    drift: owned.filter((r) => r.syncStatus === "drift").length,
+  };
+}
 
 /** Filter chips shown in the Resources page header, in display order. */
 export const RESOURCE_CATEGORIES: AioResourceCategory[] = [

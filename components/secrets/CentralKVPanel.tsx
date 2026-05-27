@@ -1,13 +1,14 @@
 "use client";
 
-import { KeyRound, Link2 } from "lucide-react";
-import { CENTRAL_KV } from "@/lib/fixtures/secrets";
+import { KeyRound, Link2, ShieldCheck } from "lucide-react";
+import { CENTRAL_KVS, type CentralKeyVault } from "@/lib/fixtures/secrets";
 
 /**
- * Central Key Vault status panel. The KV resource itself is configured once
- * by Central IT and shared across the fleet — sites just sync secrets from
- * it. The panel communicates "the wiring is healthy" without offering an
- * edit button (wrong persona / wrong surface for that).
+ * Central Key Vault status panel. There is one Key Vault per environment
+ * (dev, prod) so a leaked dev-side identity cannot read prod secret values.
+ * Sites pick their KV by environment label — the panel just communicates the
+ * wiring; provisioning still lives in Central IT / the Scale Kit `secretsync`
+ * step.
  */
 export function CentralKVPanel() {
   return (
@@ -15,33 +16,64 @@ export function CentralKVPanel() {
       <div className="flex items-baseline justify-between">
         <div className="flex items-center gap-2">
           <KeyRound className="h-4 w-4 text-accent" />
-          <h2 className="text-[13px] font-semibold text-fg">Central Key Vault</h2>
+          <h2 className="text-[13px] font-semibold text-fg">Central Key Vaults</h2>
           <span className="inline-flex items-center gap-1 rounded-sm border border-success/30 bg-success-subtle px-1.5 py-[1px] text-[11px] text-success-fg">
-            <span className="h-1.5 w-1.5 rounded-full bg-success-fg" aria-hidden />
-            {CENTRAL_KV.connected ? "Connected" : "Disconnected"}
+            <ShieldCheck className="h-3 w-3" />
+            Isolated by environment
           </span>
         </div>
         <span className="text-[11px] uppercase tracking-wide text-fg-subtle">
           Source of truth for secret values
         </span>
       </div>
-      <div className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-[12px] md:grid-cols-2">
-        <div className="flex items-baseline gap-2">
-          <span className="w-24 shrink-0 text-fg-subtle">Vault</span>
-          <code className="font-mono text-fg">{CENTRAL_KV.name}</code>
-        </div>
-        <div className="flex items-baseline gap-2">
-          <span className="w-24 shrink-0 text-fg-subtle">Resource ID</span>
-          <code className="truncate font-mono text-fg-muted" title={CENTRAL_KV.resourceId}>
-            {CENTRAL_KV.resourceId}
-          </code>
-        </div>
+
+      <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+        {CENTRAL_KVS.map((kv) => (
+          <KvCard key={kv.env} kv={kv} />
+        ))}
       </div>
+
       <p className="mt-2 flex items-center gap-1.5 text-[11px] text-fg-subtle">
         <Link2 className="h-3 w-3" />
-        Per-site secret entries below pull values from this vault via the Secret Store CSI driver.
-        Values are never stored in git.
+        Each site reconciles from the vault that matches its environment (dev
+        sites → dev vault, prod sites → prod vault) via the Secret Store CSI
+        driver. Values are never stored in git.
       </p>
     </section>
+  );
+}
+
+function KvCard({ kv }: { kv: CentralKeyVault }) {
+  const tone =
+    kv.env === "prod"
+      ? "border-accent/40 bg-accent-subtle/40"
+      : "border-border bg-bg-subtle";
+  return (
+    <div className={`rounded border px-2.5 py-2 ${tone}`}>
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <span
+            className={`inline-flex items-center rounded-sm px-1.5 py-[1px] text-[10px] font-semibold uppercase tracking-wide ${
+              kv.env === "prod"
+                ? "bg-accent text-accent-fg"
+                : "bg-bg-muted text-fg"
+            }`}
+          >
+            {kv.env}
+          </span>
+          <code className="font-mono text-[12px] font-semibold text-fg">{kv.name}</code>
+        </div>
+        <span className="inline-flex items-center gap-1 rounded-sm border border-success/30 bg-success-subtle px-1.5 py-[1px] text-[10px] text-success-fg">
+          <span className="h-1.5 w-1.5 rounded-full bg-success-fg" aria-hidden />
+          {kv.connected ? "Connected" : "Disconnected"}
+        </span>
+      </div>
+      <div
+        className="mt-1 truncate font-mono text-[10px] text-fg-subtle"
+        title={kv.resourceId}
+      >
+        {kv.resourceId}
+      </div>
+    </div>
   );
 }

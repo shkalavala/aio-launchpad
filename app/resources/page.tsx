@@ -6,8 +6,9 @@
 
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -19,6 +20,7 @@ import {
   Rocket,
   ShieldCheck,
   Upload,
+  X,
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -31,12 +33,15 @@ import {
   type AioResource,
   type AioResourceCategory,
 } from "@/lib/fixtures/aioResources";
+import { FLEET } from "@/lib/fixtures/sites";
 import { useAppStore } from "@/store/useAppStore";
 
 type Filter = "All" | AioResourceCategory;
 
 export default function ResourcesPage() {
   const fleetRepo = useAppStore((s) => s.fleetRepo);
+  const searchParams = useSearchParams();
+  const siteParam = searchParams?.get("site") ?? null;
 
   const [filter, setFilter] = useState<Filter>("All");
   const [driftOnly, setDriftOnly] = useState(false);
@@ -44,24 +49,38 @@ export default function ResourcesPage() {
     "snapshot",
   );
   const [query, setQuery] = useState("");
+  const [siteFilter, setSiteFilter] = useState<string | null>(siteParam);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [flash, setFlash] = useState<string | null>(null);
   const [openResource, setOpenResource] = useState<AioResource | null>(null);
 
+  // Keep state in sync if the URL changes (e.g. via the SiteDetailDrawer link).
+  useEffect(() => {
+    setSiteFilter(siteParam);
+  }, [siteParam]);
+
+  const allSiteNames = useMemo(() => FLEET.map((f) => f.site.name).sort(), []);
+
+  // Apply the site scope first so chip counts reflect the current site.
+  const siteScoped = useMemo(() => {
+    if (!siteFilter) return AIO_RESOURCES;
+    return AIO_RESOURCES.filter((r) => r.owningSites.includes(siteFilter));
+  }, [siteFilter]);
+
   const counts = useMemo(() => {
-    const c: Record<string, number> = { All: AIO_RESOURCES.length };
-    for (const r of AIO_RESOURCES) c[r.category] = (c[r.category] ?? 0) + 1;
+    const c: Record<string, number> = { All: siteScoped.length };
+    for (const r of siteScoped) c[r.category] = (c[r.category] ?? 0) + 1;
     return c;
-  }, []);
+  }, [siteScoped]);
 
   const driftCount = useMemo(
-    () => AIO_RESOURCES.filter((r) => r.syncStatus === "drift").length,
-    [],
+    () => siteScoped.filter((r) => r.syncStatus === "drift").length,
+    [siteScoped],
   );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return AIO_RESOURCES.filter((r) => {
+    return siteScoped.filter((r) => {
       if (driftOnly && r.syncStatus !== "drift") return false;
       if (filter !== "All" && r.category !== filter) return false;
       if (!q) return true;
@@ -71,7 +90,7 @@ export default function ResourcesPage() {
         r.armType.toLowerCase().includes(q)
       );
     });
-  }, [filter, driftOnly, query]);
+  }, [siteScoped, filter, driftOnly, query]);
 
   function toggleRow(id: string) {
     setSelected((prev) => {
@@ -183,6 +202,11 @@ export default function ResourcesPage() {
           active={driftOnly}
           count={driftCount}
           onClick={() => setDriftOnly((v) => !v)}
+        />
+        <SiteFilterControl
+          siteNames={allSiteNames}
+          value={siteFilter}
+          onChange={setSiteFilter}
         />
         <div className="ml-auto flex items-center gap-3">
           <DriftSourcePill
@@ -335,7 +359,18 @@ export default function ResourcesPage() {
 
       <div className="flex items-center justify-between text-[11px] text-fg-subtle">
         <div>
-          Showing {filtered.length} of {AIO_RESOURCES.length} resources
+          Showing {filtered.length} of {siteScoped.length} resources
+          {siteFilter && (
+            <span className="ml-1 text-fg-muted">
+              (scoped to <span className="font-mono text-fg">{siteFilter}</span>;{" "}
+              {AIO_RESOURCES.length} total in the instance)
+            </span>
+          )}
+          {siteFilter && (
+            <span className="ml-2 italic">
+              Site mapping is synthetic for this preview.
+            </span>
+          )}
         </div>
         <div>{selectedCount} selected</div>
       </div>
@@ -385,6 +420,53 @@ function FilterChip({
         {count}
       </span>
     </button>
+  );
+}
+
+function SiteFilterControl({
+  siteNames,
+  value,
+  onChange,
+}: {
+  siteNames: string[];
+  value: string | null;
+  onChange: (next: string | null) => void;
+}) {
+  if (value) {
+    return (
+      <div className="inline-flex items-center gap-1 rounded-full border border-accent bg-accent-subtle px-2 py-0.5 text-[12px] font-medium text-accent">
+        <span className="text-[10px] uppercase tracking-wide opacity-80">Site</span>
+        <span className="font-mono">{value}</span>
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          aria-label="Clear site filter"
+          className="rounded-full p-0.5 hover:bg-accent/15"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+    );
+  }
+  return (
+    <label
+      className="inline-flex items-center gap-1 rounded-full border border-border-strong bg-surface px-2 py-0.5 text-[12px] text-fg-muted hover:border-accent"
+      title="Filter resources by which fleet site consumes them"
+    >
+      <span className="text-[10px] uppercase tracking-wide">Site</span>
+      <select
+        value=""
+        onChange={(e) => onChange(e.target.value || null)}
+        className="bg-transparent text-[12px] text-fg outline-none"
+      >
+        <option value="">All sites</option>
+        {siteNames.map((n) => (
+          <option key={n} value={n}>
+            {n}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

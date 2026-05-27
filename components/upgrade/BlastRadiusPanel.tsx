@@ -1,10 +1,20 @@
 "use client";
 
 import { useMemo } from "react";
-import { Globe2, ServerCog, Activity, Filter as FilterIcon, Layers } from "lucide-react";
+import Link from "next/link";
+import {
+  Activity,
+  AlertTriangle,
+  Cloud,
+  Filter as FilterIcon,
+  Globe2,
+  Layers,
+  ServerCog,
+} from "lucide-react";
 import type { AioReleaseId, FleetSite } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { COUNTRY_NAMES } from "@/lib/fixtures/sites";
+import { resourceDriftForSites } from "@/lib/fixtures/aioResources";
 import { parseSelector, serializeSelector } from "@/lib/selector";
 import { YamlDiff } from "./YamlDiff";
 
@@ -150,6 +160,8 @@ export function BlastRadiusPanel({
         </span>
       </div>
 
+      <ResourceDriftPreflight selectedSites={selectedSites} />
+
       {targetReleaseId && selectedSites.length > 0 && (
         <YamlDiff
           selectedSites={selectedSites}
@@ -177,6 +189,73 @@ function Stat({
         {label}
       </div>
       <div className="text-[15px] font-semibold text-fg">{value}</div>
+    </div>
+  );
+}
+
+/**
+ * Pre-rollout resource-drift check. Reads the Resources fixture (synthetic
+ * snapshot of `az iot ops clone` state) and shows how many ARM resources in
+ * the selected sites have drifted vs the fleet repo. Resource drift can mean
+ * a rollout silently overwrites a hand-edited resource, so we surface the
+ * count with a deep-link to /resources?site=… for the first affected site
+ * (or unfiltered if many sites are selected).
+ */
+function ResourceDriftPreflight({ selectedSites }: { selectedSites: FleetSite[] }) {
+  const siteNames = useMemo(
+    () => selectedSites.map((s) => s.site.name),
+    [selectedSites],
+  );
+  const { total, drift } = useMemo(() => resourceDriftForSites(siteNames), [siteNames]);
+  if (selectedSites.length === 0) return null;
+  const single = selectedSites.length === 1 ? selectedSites[0].site.name : null;
+  const href = single
+    ? `/resources?site=${encodeURIComponent(single)}`
+    : "/resources";
+  const tone = drift > 0
+    ? "border-warning/40 bg-warning/10"
+    : "border-success/30 bg-success/5";
+  return (
+    <div
+      className={`flex items-center gap-3 rounded border px-3 py-2 text-[12px] ${tone}`}
+    >
+      <Cloud className="h-4 w-4 text-fg-subtle" />
+      <div className="flex-1">
+        <div className="font-semibold text-fg">
+          Resource drift preflight{" "}
+          <span className="font-normal text-fg-muted">
+            · {total} ARM resource{total === 1 ? "" : "s"} in scope
+          </span>
+        </div>
+        <p className="mt-0.5 text-[11px] text-fg-muted">
+          {drift === 0 ? (
+            <>
+              All resources mapped to the selected sites match the fleet repo —
+              no hand-edits will be overwritten.
+            </>
+          ) : (
+            <>
+              <span className="inline-flex items-center gap-1 font-semibold text-warning">
+                <AlertTriangle className="h-3 w-3" />
+                {drift} drifted
+              </span>{" "}
+              vs the fleet repo. Reconcile or accept overwrite before rolling
+              out — drift will be silently overwritten when the manifest
+              re-applies.
+            </>
+          )}
+        </p>
+      </div>
+      <Link
+        href={href}
+        className={`inline-flex shrink-0 items-center gap-1 rounded-sm border px-2 py-1 text-[11px] font-medium transition-colors ${
+          drift > 0
+            ? "border-warning/60 bg-surface text-warning hover:bg-warning/15"
+            : "border-border bg-surface text-fg hover:bg-bg-subtle"
+        }`}
+      >
+        {drift > 0 ? "Review drift" : "Open Resources"}
+      </Link>
     </div>
   );
 }

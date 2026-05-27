@@ -2,7 +2,7 @@
 // SecretEntry — the store owns the per-session overlay.
 
 import type { SecretEntry } from "@/lib/types";
-import { CENTRAL_KV } from "@/lib/fixtures/secrets";
+import { kvForSite } from "@/lib/fixtures/secrets";
 
 /** Derived per-row status displayed in the table. */
 export type SecretStatus =
@@ -52,12 +52,13 @@ export function validateSecretName(name: string): string | undefined {
  * already-existing KV secret.
  */
 export function renderSyncSecretsYaml(siteName: string, entries: SecretEntry[]): string {
+  const kv = kvForSite(siteName);
   const lines: string[] = [
     `# input-sync-secrets.yaml — generated for ${siteName}`,
     `# Values are NOT in this file. Supply via sites.local/ overlay or CI/CD secret store.`,
     "",
     "# Resolved infrastructure (from upstream resolve-aio + secretsync steps)",
-    `keyVaultName: "{{ steps.secretsync.outputs.keyVaultName }}"   # ${CENTRAL_KV.name}`,
+    `keyVaultName: "{{ steps.secretsync.outputs.keyVaultName }}"   # ${kv.name} (${kv.env})`,
     `spcName: "{{ steps.secretsync.outputs.spcResourceName }}"`,
     `managedIdentityClientId: "{{ steps.secretsync.outputs.managedIdentityClientId }}"`,
     `customLocationName: "{{ steps.resolve-aio.outputs.customLocationName }}"`,

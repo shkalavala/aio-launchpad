@@ -9,6 +9,7 @@ import {
   validateSecretName,
   type SecretStatus,
 } from "@/lib/secrets";
+import { kvForSite } from "@/lib/fixtures/secrets";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 
@@ -26,8 +27,8 @@ interface Props {
  * Per-site secrets table. Renders the SecretEntry array as rows + an inline
  * "+ Add secret" affordance. Each row exposes a `createInKv` toggle whose
  * polarity matches Scale Kit: on (default) = pipeline creates the secret in
- * the central KV; off = the secret already exists in the KV and we only
- * reference it.
+ * the env-matched central KV (dev sites → dev vault, prod sites → prod
+ * vault); off = the secret already exists in the KV and we only reference it.
  *
  * Status semantics are intentionally simple: synced = same as fixture,
  * pending = added or edited this session, error = metadata fails validation
@@ -102,8 +103,11 @@ export function SecretsTable({ siteName, entries, fixtureNames, hasOverlay, onCh
         <div>
           <h2 className="text-[13px] font-semibold text-fg">Secrets for {siteName}</h2>
           <p className="text-[11px] text-fg-subtle">
-            Metadata only. Values live in the central Key Vault and sync to the
-            cluster via the Secret Store CSI driver.
+            Metadata only. Values live in the{" "}
+            <span className="font-mono text-fg-muted">{kvForSite(siteName).env}</span>{" "}
+            central Key Vault (
+            <span className="font-mono text-fg-muted">{kvForSite(siteName).name}</span>
+            ) and sync to the cluster via the Secret Store CSI driver.
           </p>
         </div>
         <span className="text-[12px] text-fg-muted">
@@ -172,7 +176,7 @@ export function SecretsTable({ siteName, entries, fixtureNames, hasOverlay, onCh
                           : "border-border bg-bg justify-start",
                       )}
                       title={willCreate
-                        ? "On (default): pipeline creates this secret in the central KV"
+                        ? `On (default): pipeline creates this secret in the ${kvForSite(siteName).env} central KV`
                         : "Off: secret already exists in the KV — we only reference it"}
                     >
                       <span className="m-[2px] block h-3 w-3 rounded-full bg-bg" />

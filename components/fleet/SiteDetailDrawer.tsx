@@ -8,6 +8,7 @@ import {
   ArrowUpRight,
   CheckCircle2,
   ChevronRight,
+  Cloud,
   Cpu,
   ExternalLink,
   GitCommit,
@@ -25,7 +26,8 @@ import { cn } from "@/lib/utils";
 import { HealthDot } from "./HealthDot";
 import { VersionBadge } from "./VersionBadge";
 import { EnvPill } from "./EnvPill";
-import { SECRETS_BY_SITE, CENTRAL_KV } from "@/lib/fixtures/secrets";
+import { SECRETS_BY_SITE, kvForSite } from "@/lib/fixtures/secrets";
+import { resourcesForSite } from "@/lib/fixtures/aioResources";
 import { IDENTITY_BY_SITE, type SyncControllerHealth } from "@/lib/fixtures/identity";
 import { PIPELINE_RUNS, pipelineRunUrl } from "@/lib/fixtures/pipeline";
 import { componentsForSite } from "@/lib/fixtures/components";
@@ -75,6 +77,9 @@ export function SiteDetailDrawer({
   const manifestPath = `sites/${name}.yaml`;
   const components = componentsForSite(name, release);
   const driftCount = components.filter((c) => c.drift).length;
+  const kv = kvForSite(name);
+  const siteResources = resourcesForSite(name);
+  const siteResourceDrift = siteResources.filter((r) => r.syncStatus === "drift").length;
   const lastApplied = PIPELINE_RUNS.find(
     (r) => r.status === "success" && r.sitesChanged.includes(name),
   );
@@ -227,6 +232,45 @@ export function SiteDetailDrawer({
             </DetailSection>
 
             <DetailSection
+              icon={Cloud}
+              title={`ARM resources (${siteResources.length}${
+                siteResourceDrift > 0 ? ` · ${siteResourceDrift} drift` : ""
+              })`}
+              action={
+                <Link
+                  href={`/resources?site=${encodeURIComponent(name)}`}
+                  className="inline-flex items-center gap-1 text-[11px] text-accent hover:underline"
+                >
+                  Open in Resources <ExternalLink className="h-3 w-3" />
+                </Link>
+              }
+            >
+              {siteResources.length === 0 ? (
+                <p className="text-[12px] text-fg-subtle">
+                  No ARM resources mapped to this site yet.
+                </p>
+              ) : (
+                <div className="flex items-center justify-between gap-3 rounded-sm border border-border bg-bg-subtle px-2 py-1.5 text-[12px]">
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-semibold text-fg">{siteResources.length}</span>
+                    <span className="text-fg-subtle">total</span>
+                    {siteResourceDrift > 0 ? (
+                      <>
+                        <span className="font-semibold text-warning">{siteResourceDrift}</span>
+                        <span className="text-fg-subtle">drifted vs fleet repo</span>
+                      </>
+                    ) : (
+                      <span className="text-success">all in sync with fleet repo</span>
+                    )}
+                  </div>
+                  <span className="text-[10px] italic text-fg-subtle">
+                    site mapping synthetic
+                  </span>
+                </div>
+              )}
+            </DetailSection>
+
+            <DetailSection
               icon={ShieldCheck}
               title={`Identity & sync infra${
                 identity && identity.syncController.health !== "healthy"
@@ -249,8 +293,8 @@ export function SiteDetailDrawer({
                     </div>
                     <div className="mt-0.5 flex items-center justify-between gap-2 text-[10px] text-fg-subtle">
                       <span>
-                        Central KV:{" "}
-                        <span className="font-mono text-fg-muted">{CENTRAL_KV.name}</span>
+                        Central KV ({kv.env}):{" "}
+                        <span className="font-mono text-fg-muted">{kv.name}</span>
                       </span>
                       <span className="font-mono">
                         reconciled {formatRelative(identity.syncController.lastReconcileAt)}
