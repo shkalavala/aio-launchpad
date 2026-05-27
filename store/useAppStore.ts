@@ -143,7 +143,75 @@ interface AppState {
   demoMode: boolean;
   setDemoMode: (v: boolean) => void;
   toggleDemoMode: () => void;
+
+  // ── Fleet repo connection (conceptual mock) ─────────────────────────
+  /**
+   * Mock state for the /connect/ screen. Mirrors DoEGit's Connect-GitHub
+   * flow: pick an existing fork of Scale Kit, or "fork & create" a new one.
+   * No real GitHub API calls — buttons just flip state so the IA and the
+   * user journey can be reviewed before any real integration is wired.
+   */
+  fleetRepo: FleetRepoConfig;
+  setFleetRepo: (patch: Partial<FleetRepoConfig>) => void;
+  connectGithub: (account: string, method: AuthMethod) => void;
+  disconnectGithub: () => void;
+  createFleetRepo: () => void;
 }
+
+/** Authentication mechanism for the GitHub connection. */
+export type AuthMethod = "pat" | "device" | "sso";
+
+export interface FleetRepoConfig {
+  connected: boolean;
+  /** Mock GitHub handle once "connected". */
+  account: string | null;
+  /** Auth mechanism shown in the UI. */
+  auth: AuthMethod | null;
+  /** Which auth method the user is currently configuring, before connect. */
+  pendingAuth: AuthMethod | null;
+  mode: "select" | "create";
+  /** "owner/repo" of the currently configured fleet repo, or null. */
+  selectedRepo: string | null;
+  /** Draft fields for Create-New mode. */
+  newRepoName: string;
+  newRepoDescription: string;
+  newRepoPrivate: boolean;
+  /** Common target settings. */
+  branch: string;
+  manifestsPath: string;
+  /**
+   * Path for AIO ARM resources (Bicep/ARM templates: Instance, Assets,
+   * Endpoints, Dataflows, Schemas). Separate from manifestsPath because
+   * the two artifact families have different authors, review cadence, and
+   * promotion workflows.
+   */
+  bicepPath: string;
+  /** Whether the configuration has been saved at least once this session. */
+  saved: boolean;
+}
+
+/**
+ * Upstream Scale Kit repo used as the fork source. Placeholder — the real
+ * upstream is private/internal during preview; will be wired when Scale Kit
+ * v1 ships publicly. Surfaced in the UI as "Fork source".
+ */
+export const SCALE_KIT_UPSTREAM = "Azure-Samples/azure-iot-operations-scale-kit";
+
+/**
+ * Mock list of existing repos that the connected account can choose from.
+ * Stand-in for the real `GET /user/repos` response. Annotated so the UI can
+ * mark which ones look like prior Scale Kit forks.
+ */
+export const MOCK_EXISTING_REPOS: Array<{
+  fullName: string;
+  isFork: boolean;
+  private: boolean;
+}> = [
+  { fullName: "contoso-industries/aio-fleet-config", isFork: true, private: true },
+  { fullName: "contoso-industries/iot-ops-experiments", isFork: false, private: true },
+  { fullName: "vincenzocaruso/doe-extensions-example-app", isFork: false, private: true },
+  { fullName: "Azure-Samples/azure-iot-operations-scale-kit", isFork: false, private: false },
+];
 
 export const useAppStore = create<AppState>()(persist((set, get) => ({
   selectedSiteNames: [],
@@ -334,9 +402,67 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   demoMode: true,
   setDemoMode: (v) => set({ demoMode: v }),
   toggleDemoMode: () => set((s) => ({ demoMode: !s.demoMode })),
+
+  // ── Fleet-repo slice (conceptual) ─────────────────────────────────
+  fleetRepo: {
+    connected: false,
+    account: null,
+    auth: null,
+    pendingAuth: null,
+    mode: "select",
+    selectedRepo: null,
+    newRepoName: "aio-fleet-config",
+    newRepoDescription: "Azure IoT Operations fleet manifests (forked from Scale Kit)",
+    newRepoPrivate: true,
+    branch: "main",
+    manifestsPath: "fleet",
+    bicepPath: "infra/bicep",
+    saved: false,
+  },
+  setFleetRepo: (patch) =>
+    set((s) => ({ fleetRepo: { ...s.fleetRepo, ...patch } })),
+  connectGithub: (account, method) =>
+    set((s) => ({
+      fleetRepo: {
+        ...s.fleetRepo,
+        connected: true,
+        account,
+        auth: method,
+        pendingAuth: null,
+      },
+    })),
+  disconnectGithub: () =>
+    set((s) => ({
+      fleetRepo: {
+        ...s.fleetRepo,
+        connected: false,
+        account: null,
+        auth: null,
+        pendingAuth: null,
+        selectedRepo: null,
+        saved: false,
+      },
+    })),
+  createFleetRepo: () =>
+    set((s) => {
+      const account = s.fleetRepo.account ?? "you";
+      const fullName = `${account}/${s.fleetRepo.newRepoName}`;
+      return {
+        fleetRepo: {
+          ...s.fleetRepo,
+          selectedRepo: fullName,
+          mode: "select",
+          saved: true,
+        },
+      };
+    }),
 }), {
   name: PERSIST_KEY,
+  version: 2,
   storage: createJSONStorage(() => localStorage),
+  // Old persisted state (pre-bicepPath) is forward-compatible — keep it, let
+  // `merge` fill in defaults for new fields.
+  migrate: (persisted) => persisted as AppState,
   // Persist only the visible-state overlays. Rollout in-flight state is
   // intentionally not persisted — the ticker won't resume cleanly across
   // reloads and the operator should always start a rollout fresh.
@@ -346,7 +472,18 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
     installedPendingSiteNames: s.installedPendingSiteNames,
     secretsOverlay: s.secretsOverlay,
     sessionRollouts: s.sessionRollouts,
+    fleetRepo: s.fleetRepo,
   }),
+  // Merge persisted state with current defaults so newly-added fields
+  // (e.g. bicepPath) are populated on existing installs.
+  merge: (persisted, current) => {
+    const p = (persisted as Partial<AppState>) ?? {};
+    return {
+      ...current,
+      ...p,
+      fleetRepo: { ...current.fleetRepo, ...(p.fleetRepo ?? {}) },
+    } as AppState;
+  },
 }));
 
 // ── Tick driver ──────────────────────────────────────────────────────────────
