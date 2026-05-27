@@ -162,12 +162,33 @@ interface AppState {
   createFleetRepo: () => void;
 }
 
-/** Authentication mechanism for the GitHub connection. */
-export type AuthMethod = "pat" | "device" | "sso";
+/**
+ * Source-control platform hosting the fleet repo. The current /connect flow
+ * is GitHub-first because Scale Kit lives on GitHub today, but the day-2
+ * fleet repo (manifests + Bicep) frequently lives in Azure DevOps when the
+ * customer's standard CI/CD platform is ADO. Adding new providers (GitLab
+ * etc.) means a new union member + per-provider auth set.
+ */
+export type GitProvider = "github" | "ado";
+
+/**
+ * Authentication mechanism for the fleet-repo connection. Per-provider
+ * because the practical flows differ: GitHub uses device flow as the
+ * recommended browser auth (no PAT lifecycle); ADO uses Entra OAuth as its
+ * browser equivalent and doesn't expose a device flow. PATs remain as the
+ * disclosure / service-account escape hatch on both.
+ */
+export type AuthMethod =
+  | "github-device"
+  | "github-pat"
+  | "ado-entra"
+  | "ado-pat";
 
 export interface FleetRepoConfig {
   connected: boolean;
-  /** Mock GitHub handle once "connected". */
+  /** Source-control platform hosting the fleet repo. */
+  provider: GitProvider;
+  /** Mock handle once "connected" (GitHub login or ADO org/user). */
   account: string | null;
   /** Auth mechanism shown in the UI. */
   auth: AuthMethod | null;
@@ -414,6 +435,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   // ── Fleet-repo slice (conceptual) ─────────────────────────────────
   fleetRepo: {
     connected: false,
+    provider: "github",
     account: null,
     auth: null,
     pendingAuth: null,
@@ -466,7 +488,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
     }),
 }), {
   name: PERSIST_KEY,
-  version: 2,
+  version: 3,
   storage: createJSONStorage(() => localStorage),
   // Old persisted state (pre-bicepPath) is forward-compatible — keep it, let
   // `merge` fill in defaults for new fields.
@@ -486,10 +508,34 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   // (e.g. bicepPath) are populated on existing installs.
   merge: (persisted, current) => {
     const p = (persisted as Partial<AppState>) ?? {};
+    // Auth-method union changed in v3: "pat" | "device" | "sso" →
+    // "github-device" | "github-pat" | "ado-entra" | "ado-pat". Map any
+    // pre-v3 values from old persisted state forward.
+    const rawFleet = (p.fleetRepo ?? {}) as Partial<FleetRepoConfig> & {
+      auth?: string | null;
+      pendingAuth?: string | null;
+    };
+    const migrateAuth = (v: string | null | undefined): AuthMethod | null => {
+      if (v === "pat") return "github-pat";
+      if (v === "device" || v === "sso") return "github-device";
+      if (
+        v === "github-device" ||
+        v === "github-pat" ||
+        v === "ado-entra" ||
+        v === "ado-pat"
+      )
+        return v;
+      return null;
+    };
+    const fleet: Partial<FleetRepoConfig> = {
+      ...rawFleet,
+      auth: migrateAuth(rawFleet.auth ?? null),
+      pendingAuth: migrateAuth(rawFleet.pendingAuth ?? null),
+    };
     return {
       ...current,
       ...p,
-      fleetRepo: { ...current.fleetRepo, ...(p.fleetRepo ?? {}) },
+      fleetRepo: { ...current.fleetRepo, ...fleet },
     } as AppState;
   },
 }));

@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { cn } from "@/lib/utils";
 import {
   type AuthMethod,
   MOCK_EXISTING_REPOS,
@@ -478,7 +479,7 @@ function SourceCard({
   );
 }
 
-// ── Step 1b: GitHub auth picker (only for fork modes) ───────────────────────
+// ── Step 1b: Auth picker (provider-aware) ───────────────────────────────────
 
 function StepGithubAuth({
   sourceMode,
@@ -493,29 +494,44 @@ function StepGithubAuth({
   onBackToSource: () => void;
   onConnect: (m: AuthMethod) => void;
 }) {
+  const provider = useAppStore((s) => s.fleetRepo.provider);
+  const setFleetRepo = useAppStore((s) => s.setFleetRepo);
   const sourceLabel =
     sourceMode === "existing-fork" ? "Existing fleet repo" : "Fork Scale Kit now";
 
-  if (pendingAuth === "pat") {
+  // PAT subview — same form for both providers, only the placeholder + label
+  // text shift.
+  if (pendingAuth === "github-pat" || pendingAuth === "ado-pat") {
+    const isGh = pendingAuth === "github-pat";
     return (
       <Panel>
         <PanelHeader
           onBack={() => onPickAuth(null)}
           icon={<KeyRound className="h-4 w-4 text-accent" />}
-          title="Personal access token"
+          title={isGh ? "GitHub personal access token" : "Azure DevOps PAT"}
           subtitle={
-            <>
-              Fine-grained or classic token with{" "}
-              <code className="font-mono text-[11px]">repo</code> scope.
-            </>
+            isGh ? (
+              <>
+                Fine-grained or classic token with{" "}
+                <code className="font-mono text-[11px]">repo</code> scope.
+              </>
+            ) : (
+              <>
+                Token with{" "}
+                <code className="font-mono text-[11px]">Code (Read &amp; Write)</code>{" "}
+                scope on the target project.
+              </>
+            )
           }
         />
         <div className="mt-4 max-w-md">
-          <Field label="GitHub PAT">
-            <PasswordInput placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" />
+          <Field label={isGh ? "GitHub PAT" : "Azure DevOps PAT"}>
+            <PasswordInput
+              placeholder={isGh ? "ghp_xxxxxxxxxxxxxxxxxxxx" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}
+            />
           </Field>
           <div className="mt-3">
-            <Button variant="primary" onClick={() => onConnect("pat")}>
+            <Button variant="primary" onClick={() => onConnect(pendingAuth)}>
               Connect
             </Button>
           </div>
@@ -524,17 +540,29 @@ function StepGithubAuth({
     );
   }
 
-  if (pendingAuth === "device") {
+  // Browser-flow subview — device flow for GitHub, Entra OAuth for ADO.
+  if (pendingAuth === "github-device" || pendingAuth === "ado-entra") {
+    const isGh = pendingAuth === "github-device";
     return (
       <Panel>
         <PanelHeader
           onBack={() => onPickAuth(null)}
-          icon={<Github className="h-4 w-4 text-fg" />}
-          title="GitHub device flow"
-          subtitle="Authorize via browser — no token to copy or store."
+          icon={
+            isGh ? (
+              <Github className="h-4 w-4 text-fg" />
+            ) : (
+              <ShieldCheck className="h-4 w-4 text-accent" />
+            )
+          }
+          title={isGh ? "GitHub device flow" : "Sign in with Entra ID"}
+          subtitle={
+            isGh
+              ? "Authorize via browser — no token to copy or store."
+              : "Federated Azure AD sign-in to your Azure DevOps organization. Supports org-wide conditional access."
+          }
         />
         <div className="mt-4">
-          <Button variant="primary" onClick={() => onConnect("device")}>
+          <Button variant="primary" onClick={() => onConnect(pendingAuth)}>
             Start authorization
           </Button>
         </div>
@@ -542,6 +570,17 @@ function StepGithubAuth({
     );
   }
 
+  // Default: provider toggle + single primary CTA + collapsed "use a token"
+  // disclosure. Replaces the older 3-row chooser (Device / PAT / SSO-coming-soon),
+  // which mirrored the generic GitHub-template pattern and didn't account for
+  // Azure DevOps existing at all.
+  const primaryMethod: AuthMethod = provider === "github" ? "github-device" : "ado-entra";
+  const tokenMethod: AuthMethod = provider === "github" ? "github-pat" : "ado-pat";
+  const primaryLabel = provider === "github" ? "Continue with GitHub" : "Continue with Azure DevOps";
+  const primarySubtitle =
+    provider === "github"
+      ? "Authorize via browser (device flow). Supports org SSO. Recommended for individual operators."
+      : "Sign in with your Entra ID account to the Azure DevOps organization. Supports org-wide conditional access. Recommended.";
   return (
     <Panel>
       <button
@@ -555,7 +594,7 @@ function StepGithubAuth({
       <div className="mb-3 flex items-center justify-between">
         <div>
           <div className="text-[13px] font-semibold text-fg">
-            How should we sign in to GitHub?
+            Where does your fleet repo live?
           </div>
           <div className="text-[11px] text-fg-subtle">
             For: <span className="font-medium text-fg-muted">{sourceLabel}</span>
@@ -565,33 +604,99 @@ function StepGithubAuth({
           Step 1 of 3 · Auth
         </span>
       </div>
-      <div className="divide-y divide-border rounded-md border border-border bg-surface">
-        <AuthRow
-          icon={<Github className="h-4 w-4 text-fg" />}
-          title="GitHub device flow"
-          body="Authorize via browser. Supports org SSO. Recommended."
-          tag="Recommended"
-          tagTone="accent"
-          onClick={() => onPickAuth("device")}
+
+      {/* Provider segmented control */}
+      <div
+        role="tablist"
+        aria-label="Source-control provider"
+        className="mb-3 inline-flex rounded-md border border-border bg-bg-subtle p-0.5"
+      >
+        <ProviderTab
+          active={provider === "github"}
+          onClick={() => setFleetRepo({ provider: "github" })}
+          icon={<Github className="h-3.5 w-3.5" />}
+          label="GitHub"
         />
-        <AuthRow
-          icon={<KeyRound className="h-4 w-4 text-accent" />}
-          title="Personal access token"
-          body="Paste a token with repo scope. Fastest for individual use."
-          tag="Quick"
-          tagTone="subtle"
-          onClick={() => onPickAuth("pat")}
-        />
-        <AuthRow
-          icon={<ShieldCheck className="h-4 w-4 text-fg-muted" />}
-          title="Entra ID (SSO)"
-          body="Federated identity. Org-wide deployments."
-          tag="Coming soon"
-          tagTone="muted"
-          disabled
+        <ProviderTab
+          active={provider === "ado"}
+          onClick={() => setFleetRepo({ provider: "ado" })}
+          icon={<ShieldCheck className="h-3.5 w-3.5" />}
+          label="Azure DevOps"
         />
       </div>
+
+      {/* Primary CTA */}
+      <div className="rounded-md border border-border bg-surface p-4">
+        <div className="flex items-start gap-3">
+          {provider === "github" ? (
+            <Github className="mt-0.5 h-5 w-5 text-fg" />
+          ) : (
+            <ShieldCheck className="mt-0.5 h-5 w-5 text-accent" />
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-semibold text-fg">{primaryLabel}</div>
+            <p className="mt-1 text-[12px] text-fg-muted">{primarySubtitle}</p>
+            <div className="mt-3">
+              <Button variant="primary" size="sm" onClick={() => onPickAuth(primaryMethod)}>
+                {primaryLabel}
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+          <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-accent-fg">
+            Recommended
+          </span>
+        </div>
+      </div>
+
+      {/* Disclosure: token escape hatch (CI, service accounts, restricted orgs) */}
+      <details className="mt-3 rounded-md border border-border-subtle bg-bg-subtle/40 px-3 py-2">
+        <summary className="cursor-pointer select-none text-[12px] text-fg-muted hover:text-fg">
+          Use a personal access token instead
+        </summary>
+        <p className="mt-2 text-[11px] text-fg-subtle">
+          {provider === "github"
+            ? "For service accounts, restricted orgs, or CI runners. Paste a fine-grained or classic GitHub PAT with repo scope."
+            : "For service principals, build agents, or pipelines. Paste an Azure DevOps PAT with Code (Read & Write) scope on the target project."}
+        </p>
+        <div className="mt-2">
+          <Button variant="subtle" size="sm" onClick={() => onPickAuth(tokenMethod)}>
+            <KeyRound className="h-3.5 w-3.5" />
+            Continue with a {provider === "github" ? "GitHub PAT" : "DevOps PAT"}
+          </Button>
+        </div>
+      </details>
     </Panel>
+  );
+}
+
+function ProviderTab({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded px-3 py-1 text-[12px] font-medium transition-colors",
+        active
+          ? "bg-surface text-fg shadow-sm"
+          : "text-fg-muted hover:text-fg",
+      )}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 
@@ -1075,12 +1180,14 @@ function SummaryRow({
 
 function authLabel(a: AuthMethod | null): string {
   switch (a) {
-    case "pat":
-      return "Personal access token";
-    case "device":
-      return "Device flow";
-    case "sso":
-      return "Entra ID";
+    case "github-device":
+      return "GitHub device flow";
+    case "github-pat":
+      return "GitHub PAT";
+    case "ado-entra":
+      return "Entra ID (Azure DevOps)";
+    case "ado-pat":
+      return "Azure DevOps PAT";
     default:
       return "—";
   }

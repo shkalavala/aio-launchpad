@@ -1,7 +1,8 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpCircle, Cloud, Package, Wrench, Sprout } from "lucide-react";
+import { ArrowUpCircle, Cloud, Package, Wrench, Sprout, Search, X } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { RELEASES, DEFAULT_RELEASE } from "@/lib/fixtures/releases";
 import { SAMPLE_APPS } from "@/lib/fixtures/sampleApps";
@@ -202,35 +203,11 @@ export function RolloutKindPicker({ locked }: Props) {
         )}
 
         {kind === "resource" && (
-          <PayloadRow label="Resources">
-            {resourceIds.length === 0 ? (
-              <span className="text-[11px] text-fg-subtle">
-                No resources picked. Open{" "}
-                <Link href="/resources?driftOnly=1" className="text-accent underline-offset-2 hover:underline">
-                  Resources
-                </Link>{" "}
-                to multi-select drifted resources, then “Roll out N →” back here.
-              </span>
-            ) : (
-              <>
-                <span className="inline-flex items-center gap-1 rounded-sm border border-accent bg-accent-subtle px-2 py-0.5 text-[12px] font-medium text-accent">
-                  {resourceIds.length} AIO resource{resourceIds.length === 1 ? "" : "s"} selected
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setResourceIds([])}
-                  disabled={locked}
-                  className="text-[11px] text-fg-subtle hover:text-danger-fg disabled:opacity-60"
-                  title="Clear resource selection"
-                >
-                  clear
-                </button>
-                <span className="text-[11px] text-fg-subtle">
-                  {summariseResourceSelection(resourceIds)}
-                </span>
-              </>
-            )}
-          </PayloadRow>
+          <ResourcePickerInline
+            ids={resourceIds}
+            onChange={setResourceIds}
+            locked={locked}
+          />
         )}
       </div>
     </section>
@@ -256,4 +233,178 @@ function summariseResourceSelection(ids: string[]): string {
   }
   const parts = Object.entries(byCat).map(([cat, n]) => `${n} ${cat}`);
   return parts.length === 0 ? "" : parts.join(", ");
+}
+
+// ── Inline AIO-resource picker ──────────────────────────────────────────────
+//
+// Previously this row was just a deep link to `/resources?driftOnly=1` with a
+// "Roll out N →" return trip. Forcing operators to leave the rollout screen to
+// pick a payload broke flow, especially for the common "ship this one drifted
+// dataflow" case. The full Resources page still exists for deeper exploration;
+// this picker handles the >80% case in-line.
+
+function ResourcePickerInline({
+  ids,
+  onChange,
+  locked,
+}: {
+  ids: string[];
+  onChange: (ids: string[]) => void;
+  locked: boolean;
+}) {
+  const [open, setOpen] = useState(ids.length === 0);
+  const [query, setQuery] = useState("");
+  const [driftOnly, setDriftOnly] = useState(false);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return AIO_RESOURCES.filter((r) => {
+      if (driftOnly && r.syncStatus !== "drift") return false;
+      if (!q) return true;
+      return (
+        r.name.toLowerCase().includes(q) ||
+        r.category.toLowerCase().includes(q) ||
+        r.id.toLowerCase().includes(q)
+      );
+    });
+  }, [query, driftOnly]);
+
+  const idSet = new Set(ids);
+  const driftTotal = AIO_RESOURCES.filter((r) => r.syncStatus === "drift").length;
+
+  const toggle = (id: string) => {
+    if (locked) return;
+    const next = new Set(idSet);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onChange(Array.from(next));
+  };
+
+  const selectAllFiltered = () => {
+    if (locked) return;
+    const next = new Set(idSet);
+    for (const r of filtered) next.add(r.id);
+    onChange(Array.from(next));
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2 text-[12px] text-fg-muted">
+        <span className="font-medium text-fg">AIO resources</span>
+        {ids.length > 0 ? (
+          <>
+            <span className="inline-flex items-center gap-1 rounded-sm border border-accent bg-accent-subtle px-2 py-0.5 text-[12px] font-medium text-accent">
+              {ids.length} selected
+            </span>
+            <button
+              type="button"
+              onClick={() => onChange([])}
+              disabled={locked}
+              className="text-[11px] text-fg-subtle hover:text-danger-fg disabled:opacity-60"
+              title="Clear resource selection"
+            >
+              clear
+            </button>
+            <span className="text-[11px] text-fg-subtle">
+              {summariseResourceSelection(ids)}
+            </span>
+          </>
+        ) : (
+          <span className="text-[11px] text-fg-subtle">No resources picked.</span>
+        )}
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="ml-auto text-[11px] text-accent hover:underline"
+        >
+          {open ? "Hide picker" : ids.length > 0 ? "Edit selection" : "Pick resources"}
+        </button>
+      </div>
+
+      {open && (
+        <div className="rounded-md border border-border bg-surface p-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[180px]">
+              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-subtle" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Filter by name, category, or id…"
+                className="w-full rounded-sm border border-border bg-bg-subtle py-1 pl-7 pr-7 text-[12px] text-fg placeholder:text-fg-subtle focus:border-accent focus:outline-none"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-fg-subtle hover:text-fg"
+                  aria-label="Clear filter"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            <label className="inline-flex items-center gap-1.5 text-[11px] text-fg-muted">
+              <input
+                type="checkbox"
+                checked={driftOnly}
+                onChange={(e) => setDriftOnly(e.target.checked)}
+                className="h-3 w-3 accent-accent"
+              />
+              Drift only ({driftTotal})
+            </label>
+            <button
+              type="button"
+              onClick={selectAllFiltered}
+              disabled={locked || filtered.length === 0}
+              className="text-[11px] text-accent hover:underline disabled:opacity-60"
+            >
+              Select all ({filtered.length})
+            </button>
+            <Link
+              href="/resources?driftOnly=1"
+              className="text-[11px] text-fg-subtle hover:text-accent hover:underline"
+              title="Open full Resources page for deeper exploration"
+            >
+              Open full list ↗
+            </Link>
+          </div>
+
+          <ul className="mt-2 max-h-64 divide-y divide-border-subtle overflow-y-auto rounded-sm border border-border-subtle bg-bg-subtle/40">
+            {filtered.length === 0 ? (
+              <li className="px-2 py-3 text-[11px] text-fg-subtle">
+                No resources match.
+              </li>
+            ) : (
+              filtered.map((r) => {
+                const checked = idSet.has(r.id);
+                return (
+                  <li key={r.id}>
+                    <label className="flex cursor-pointer items-center gap-2 px-2 py-1.5 text-[12px] hover:bg-bg-subtle">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggle(r.id)}
+                        disabled={locked}
+                        className="h-3 w-3 accent-accent"
+                      />
+                      <span className="min-w-0 flex-1 truncate text-fg">{r.name}</span>
+                      <span className="shrink-0 rounded-sm bg-bg-subtle px-1.5 py-0.5 text-[10px] text-fg-subtle">
+                        {r.category}
+                      </span>
+                      {r.syncStatus === "drift" && (
+                        <span className="shrink-0 rounded-sm bg-warning-fg/15 px-1.5 py-0.5 text-[10px] font-medium text-warning-fg">
+                          drift
+                        </span>
+                      )}
+                    </label>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
 }

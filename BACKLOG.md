@@ -10,10 +10,11 @@ _(empty — pick from Candidates below)_
 
 - **Multi-persona walkthrough audit.** Four-persona screen walk captured in [private/research/walkthrough-2026-05-26.md](private/research/walkthrough-2026-05-26.md). Completed 2026-05-26.
 - **Harden one persona path (Ops IT release-pin upgrade).** Rollout pipeline (rings, gates, pause/continue, health-verify, blast-radius) shipped and verified end-to-end. Completed 2026-05-26.
+- **/connect auth rethink + Azure DevOps as a fleet repo provider.** Collapsed the 3-row PAT/Device/SSO chooser to a provider toggle (GitHub | Azure DevOps) + a single primary CTA per provider (device flow / Entra OAuth) with a "Use a personal access token instead" disclosure for service accounts and restricted orgs. Store: added `GitProvider` type, expanded `AuthMethod` to `github-device | github-pat | ado-entra | ado-pat`, persist v3 with migration from old union, `provider` field on `FleetRepoConfig`.
+- **Pick rollout payload directly on `/rollout` (AIO resources).** Inline picker on the AIO-resources rollout row: search by name/category/id, drift-only toggle, scrollable checkbox list with drift badges, select-all-filtered, owning-site summary chip. Full Resources page still linked for deeper exploration. Other rollout kinds (release / install / app / arm) already had inline `<select>` payload pickers.
 
 ## Candidates (unranked)
 
-- **Pick rollout payload directly on `/rollout`.** Today you have to go to the source page (`/resources`, sample apps, etc.) to multi-select, then come back. The rollout page should let you pick *what's being rolled out* inline for every kind: AIO resources (multi-select with drift filter, owning-site preview), sample apps, ARM modules, target release. Same applies to install. The picker would replace today's "no payload picked — go open X" empty-state. Probably an inline drawer or modal per kind.
 - **Real-repo connect (Step A).** Replace the `MANIFEST_FILES` fixture in [lib/fixtures/manifests.ts](lib/fixtures/manifests.ts) with live read-only reads from a hardcoded public Scale Kit fork via the GitHub Contents API. No auth, no writes. ~2 hr. Parked 2026-05-26 — do the walkthrough audit first.
 - **Real-repo connect (Step B).** Authenticated write path: branch + commit + PR back to the connected Scale Kit fork from inside Launchpad.
 - **Apps / Helm surface.** First-class view of customer Helm workloads layered on top of AIO (currently absent — only AIO components are modeled).
