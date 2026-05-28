@@ -289,13 +289,37 @@ function leaf(
 export const SITES: Site[] = [
   // Stockholm, Sweden — 1 shared dev + 2 prod factories
   leaf("stockholm-dev", "stockholm", "dev", "rg-stockholm-dev", "stockholm-dev-aio"),
-  leaf(
-    "stockholm-assembly-prod",
-    "stockholm-assembly",
-    "prod",
-    "rg-stockholm-assembly-prod",
-    "stockholm-assembly-prod-aio",
-  ),
+  // Backfilled with cluster + arc-k8s layers (no host Arc-server agent) to
+  // demonstrate the 'cluster IS Arc-connected, host is NOT' scenario — the
+  // common case where the customer arc-onboarded their K8s cluster (required
+  // for AIO) but did not arc-onboard the underlying VM/host.
+  {
+    ...leaf(
+      "stockholm-assembly-prod",
+      "stockholm-assembly",
+      "prod",
+      "rg-stockholm-assembly-prod",
+      "stockholm-assembly-prod-aio",
+    ),
+    layers: {
+      cluster: {
+        distro: "AKS-EE",
+        currentVersion: "1.7.230",
+        targetVersion: "1.7.230",
+        health: "healthy",
+        lastApplied: "2026-05-04T07:12:00Z",
+        drift: "none",
+      },
+      arcK8sAgent: {
+        currentVersion: "1.21.6",
+        targetVersion: "1.21.6",
+        channel: "stable",
+        health: "healthy",
+        lastApplied: "2026-05-04T07:15:00Z",
+        drift: "none",
+      },
+    },
+  },
   leaf(
     "stockholm-bar-prod",
     "stockholm-bar",
@@ -306,23 +330,63 @@ export const SITES: Site[] = [
 
   // Hamburg, Germany — 1 shared dev + 1 prod factory
   leaf("hamburg-dev", "hamburg", "dev", "rg-hamburg-dev", "hamburg-dev-aio"),
-  leaf(
-    "hamburg-assembly-prod",
-    "hamburg-assembly",
-    "prod",
-    "rg-hamburg-assembly-prod",
-    "hamburg-assembly-prod-aio",
-  ),
+  {
+    ...leaf(
+      "hamburg-assembly-prod",
+      "hamburg-assembly",
+      "prod",
+      "rg-hamburg-assembly-prod",
+      "hamburg-assembly-prod-aio",
+    ),
+    layers: {
+      cluster: {
+        distro: "AKS-EE",
+        currentVersion: "1.7.220",
+        targetVersion: "1.7.230",
+        health: "healthy",
+        lastApplied: "2026-04-22T13:08:00Z",
+        drift: "behind",
+      },
+      arcK8sAgent: {
+        currentVersion: "1.21.6",
+        targetVersion: "1.21.6",
+        channel: "stable",
+        health: "healthy",
+        lastApplied: "2026-04-22T13:12:00Z",
+        drift: "none",
+      },
+    },
+  },
 
   // Gothenburg, Sweden — 1 shared dev + 1 prod factory
   leaf("gothenburg-dev", "gothenburg", "dev", "rg-gothenburg-dev", "gothenburg-dev-aio"),
-  leaf(
-    "gothenburg-cutting-prod",
-    "gothenburg-cutting",
-    "prod",
-    "rg-gothenburg-cutting-prod",
-    "gothenburg-cutting-prod-aio",
-  ),
+  {
+    ...leaf(
+      "gothenburg-cutting-prod",
+      "gothenburg-cutting",
+      "prod",
+      "rg-gothenburg-cutting-prod",
+      "gothenburg-cutting-prod-aio",
+    ),
+    layers: {
+      cluster: {
+        distro: "AKS-EE",
+        currentVersion: "1.7.230",
+        targetVersion: "1.7.230",
+        health: "healthy",
+        lastApplied: "2026-05-19T09:30:00Z",
+        drift: "none",
+      },
+      arcK8sAgent: {
+        currentVersion: "1.20.9",
+        targetVersion: "1.21.6",
+        channel: "stable",
+        health: "healthy",
+        lastApplied: "2026-02-11T11:05:00Z",
+        drift: "behind",
+      },
+    },
+  },
 
   // ── Infra-scope fixture sites ──────────────────────────────────────────────────────
   // Two AKS-EE-on-Windows-Server edge gateway sites that demonstrate the
@@ -349,7 +413,9 @@ export const SITES: Site[] = [
         lastApplied: "2026-04-30T08:14:00Z",
         drift: "behind",
       },
-      arcAgent: {
+      // Host IS Arc-for-servers connected (so we know OS / kernel / patch state
+      // and can drive Run Command into the OS).
+      arcServerAgent: {
         currentVersion: "1.45.01781",
         targetVersion: "1.45.01781",
         channel: "stable",
@@ -357,7 +423,16 @@ export const SITES: Site[] = [
         lastApplied: "2026-05-12T03:22:00Z",
         drift: "none",
       },
-      apps: [
+      // Arc-K8s agent is a hard prereq for AIO — every layered site has this.
+      arcK8sAgent: {
+        currentVersion: "1.21.6",
+        targetVersion: "1.21.6",
+        channel: "stable",
+        health: "healthy",
+        lastApplied: "2026-05-12T03:25:00Z",
+        drift: "none",
+      },
+      workloads: [
         {
           name: "edge-control",
           chart: "edge-control-3.2.0",
@@ -402,7 +477,8 @@ export const SITES: Site[] = [
         lastApplied: "2026-05-20T09:48:00Z",
         drift: "none",
       },
-      arcAgent: {
+      // Host IS Arc-server connected; agent is one minor behind target.
+      arcServerAgent: {
         currentVersion: "1.44.00992",
         targetVersion: "1.45.01781",
         channel: "stable",
@@ -410,7 +486,15 @@ export const SITES: Site[] = [
         lastApplied: "2026-03-28T07:12:00Z",
         drift: "behind",
       },
-      apps: [
+      arcK8sAgent: {
+        currentVersion: "1.21.6",
+        targetVersion: "1.21.6",
+        channel: "stable",
+        health: "healthy",
+        lastApplied: "2026-05-20T09:52:00Z",
+        drift: "none",
+      },
+      workloads: [
         {
           name: "edge-control",
           chart: "edge-control-3.2.0",

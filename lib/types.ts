@@ -132,30 +132,64 @@ export interface ClusterLayer extends LayerBase {
   distro: string;
 }
 
-/** Arc-for-servers agent (connectedmachine agent). */
-export interface ArcAgentLayer extends LayerBase {
+/**
+ * Arc-for-servers agent (connectedmachine agent), running on the host
+ * VM/OS. OPTIONAL — host Arc-connection is not a hard prereq for AIO.
+ * When the host is not Arc-connected, this layer is omitted entirely
+ * (and `NodeInfo` should be treated as unknown rather than rendered).
+ */
+export interface ArcServerAgentLayer extends LayerBase {
   /** Channel the agent receives updates on, e.g. "stable". */
   channel?: string;
 }
 
-/** A single helm-deployed workload on the cluster. */
-export interface AppLayer extends LayerBase {
+/**
+ * Arc-for-Kubernetes agent, running inside the cluster. MANDATORY —
+ * Arc-connection of the cluster is a hard prereq for installing AIO,
+ * so every Launchpad-visible site has a known arc-k8s agent version.
+ */
+export interface ArcK8sAgentLayer extends LayerBase {
+  /** Optional release channel for the agent, e.g. "stable". */
+  channel?: string;
+}
+
+/**
+ * A single helm-deployed customer workload observed on the cluster.
+ *
+ * Customer-owned, NOT a Launchpad-managed surface. Surfaced read-only
+ * in the drawer so operators see what is running; health roll-up and
+ * drift are intentionally not authoritative here — see the
+ * "Design decisions taken 2026-05-28" entry in repo memory.
+ */
+export interface WorkloadLayer extends LayerBase {
   /** Logical chart name on the cluster, e.g. "edge-control". */
   name: string;
   /** Versioned chart reference, e.g. "edge-control-3.2.0". */
   chart: string;
 }
 
-/** Vertical layer stack underneath AIO. All members optional. */
+/**
+ * Vertical layer stack underneath AIO on a single site. Mirrors the
+ * physical reality:
+ *   Host (optional Arc-server) → Cluster (Arc-K8s, always) → AIO → (workloads)
+ */
 export interface SiteLayers {
+  /** Cluster running the Arc-K8s agent + AIO. Always present on a layered site. */
   cluster?: ClusterLayer;
-  arcAgent?: ArcAgentLayer;
-  apps?: AppLayer[];
+  /** Arc-for-servers agent. Present only when the host is Arc-connected. */
+  arcServerAgent?: ArcServerAgentLayer;
+  /** Arc-for-Kubernetes agent. Always present on a layered site (AIO hard prereq). */
+  arcK8sAgent?: ArcK8sAgentLayer;
+  /** Customer-owned workloads observed on the cluster. Read-only. */
+  workloads?: WorkloadLayer[];
 }
 
 /**
- * Read-only OS / node context. Surfaced in the drawer to explain cluster
- * drift, but never a rollout target — the underlying VM is customer-owned.
+ * Read-only OS / node context for a host that IS Arc-for-servers connected.
+ * Surfaced in the drawer to explain cluster drift, but never a rollout target
+ * — the underlying VM is customer-owned. When the host is not Arc-connected,
+ * the site simply omits `nodeInfo` and the drawer shows an explicit
+ * "Host not Arc-connected — node info unavailable" note instead.
  */
 export interface NodeInfo {
   /** OS family + version label, e.g. "Windows Server 2022". */

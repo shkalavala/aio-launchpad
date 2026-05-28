@@ -457,41 +457,77 @@ function DetailSection({
 /**
  * Per-layer breakdown for sites that carry the infra-scope layer stack.
  * Sits below the AIO "Components on release" section so that section
- * keeps rendering exactly as it does for AIO-only sites. Surfaces:
- *  - Apps  (each helm-deployed workload from layers.apps)
- *  - AIO   (link back to the components list above, for grouping)
- *  - Cluster (e.g. AKS-EE) with current/target version + drift pill
- *  - Arc Agent
- *  - Node (read-only OS / kernel / last-patched — never a rollout target)
+ * keeps rendering exactly as it does for AIO-only sites.
+ *
+ * Order top-down follows the physical reality:
+ *   Host (OS, optional Arc-server agent)
+ *     → Cluster (distro per TENANT)
+ *       → Arc-K8s agent  (mandatory — AIO hard prereq)
+ *         → AIO          (link back to existing components list)
+ *           → Workloads  (customer-owned; read-only, no health rollup)
+ *
+ * Per design decision recorded 2026-05-28: workloads are NOT a Launchpad-
+ * managed surface, so they get version + chart but no health dot. Host
+ * is rendered with explicit "not Arc-connected" copy when arcServerAgent
+ * and nodeInfo are both absent, instead of silent em-dashes.
  */
 function InfraLayersSection({ site: fs }: { site: FleetSite }) {
   const layers = fs.site.layers;
   const node = fs.site.nodeInfo;
   if (!layers && !node) return null;
+  const hostArcConnected = Boolean(layers?.arcServerAgent || node);
   return (
     <DetailSection icon={Layers} title="Infra layers">
       <div className="space-y-2">
-        {layers?.apps && layers.apps.length > 0 && (
-          <LayerGroup label={`Apps (${layers.apps.length})`}>
-            {layers.apps.map((a) => (
-              <LayerRow
-                key={a.name}
-                title={a.name}
-                subtitle={a.chart}
-                current={a.currentVersion}
-                target={a.targetVersion}
-                drift={a.drift}
-                health={a.health}
-                lastApplied={a.lastApplied}
-              />
-            ))}
-          </LayerGroup>
-        )}
-        <LayerGroup label="AIO">
-          <p className="px-2 py-1 text-[11px] text-fg-subtle">
-            See <span className="font-medium text-fg">Components on release</span> above.
-          </p>
+        {/* ── Host ──────────────────────────────────────────────────── */}
+        <LayerGroup label="Host">
+          {hostArcConnected ? (
+            <>
+              {node && (
+                <div className="px-2 py-1.5 text-[12px]">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-fg">{node.os}</span>
+                    {node.kernel && (
+                      <span className="font-mono text-[11px] text-fg-muted">
+                        {node.kernel}
+                      </span>
+                    )}
+                  </div>
+                  {node.lastPatched && (
+                    <div className="mt-0.5 text-[11px] text-fg-subtle">
+                      Last patched {formatRelative(node.lastPatched)}
+                    </div>
+                  )}
+                </div>
+              )}
+              {layers?.arcServerAgent && (
+                <LayerRow
+                  title="Arc-for-servers agent"
+                  subtitle={
+                    layers.arcServerAgent.channel
+                      ? `connectedmachine · channel: ${layers.arcServerAgent.channel}`
+                      : "connectedmachine"
+                  }
+                  current={layers.arcServerAgent.currentVersion}
+                  target={layers.arcServerAgent.targetVersion}
+                  drift={layers.arcServerAgent.drift}
+                  health={layers.arcServerAgent.health}
+                  lastApplied={layers.arcServerAgent.lastApplied}
+                />
+              )}
+              <p className="px-2 py-1 text-[11px] text-fg-subtle">
+                Underlying VM / OS is customer-owned. Launchpad surfaces it as context only.
+              </p>
+            </>
+          ) : (
+            <p className="px-2 py-1.5 text-[11px] text-fg-subtle">
+              Host is not Arc-for-servers connected. OS, patch state, and node-level
+              upgrades are not visible to Launchpad for this site.
+            </p>
+          )}
         </LayerGroup>
+
+        {/* ── Cluster ──────────────────────────────────────────────── */}
         {layers?.cluster && (
           <LayerGroup label="Cluster">
             <LayerRow
@@ -504,37 +540,53 @@ function InfraLayersSection({ site: fs }: { site: FleetSite }) {
             />
           </LayerGroup>
         )}
-        {layers?.arcAgent && (
-          <LayerGroup label="Arc Agent">
+
+        {/* ── Arc-K8s agent (mandatory — AIO hard prereq) ──────────── */}
+        {layers?.arcK8sAgent && (
+          <LayerGroup label="Arc-for-Kubernetes agent">
             <LayerRow
-              title="connectedmachine agent"
-              subtitle={layers.arcAgent.channel ? `channel: ${layers.arcAgent.channel}` : undefined}
-              current={layers.arcAgent.currentVersion}
-              target={layers.arcAgent.targetVersion}
-              drift={layers.arcAgent.drift}
-              health={layers.arcAgent.health}
-              lastApplied={layers.arcAgent.lastApplied}
+              title="arc-k8s agent"
+              subtitle={
+                layers.arcK8sAgent.channel
+                  ? `cluster extension · channel: ${layers.arcK8sAgent.channel}`
+                  : "cluster extension"
+              }
+              current={layers.arcK8sAgent.currentVersion}
+              target={layers.arcK8sAgent.targetVersion}
+              drift={layers.arcK8sAgent.drift}
+              health={layers.arcK8sAgent.health}
+              lastApplied={layers.arcK8sAgent.lastApplied}
             />
           </LayerGroup>
         )}
-        {node && (
-          <LayerGroup label="Node (read-only)">
-            <div className="px-2 py-1.5 text-[12px]">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-fg">{node.os}</span>
-                {node.kernel && (
-                  <span className="font-mono text-[11px] text-fg-muted">{node.kernel}</span>
-                )}
-              </div>
-              {node.lastPatched && (
-                <div className="mt-0.5 text-[11px] text-fg-subtle">
-                  Last patched {formatRelative(node.lastPatched)}
-                </div>
-              )}
-              <p className="mt-1 text-[11px] text-fg-subtle">
-                Underlying VM / OS is customer-owned. Launchpad surfaces it as context only.
-              </p>
+
+        {/* ── AIO ──────────────────────────────────────────────────── */}
+        <LayerGroup label="AIO">
+          <p className="px-2 py-1 text-[11px] text-fg-subtle">
+            See <span className="font-medium text-fg">Components on release</span> above.
+          </p>
+        </LayerGroup>
+
+        {/* ── Workloads (customer-owned, read-only) ────────────────── */}
+        {layers?.workloads && layers.workloads.length > 0 && (
+          <LayerGroup label={`Workloads observed (${layers.workloads.length})`}>
+            <div className="px-2 pb-1 pt-1 text-[11px] text-fg-subtle">
+              Customer-owned helm charts on the cluster. Read-only; not a Launchpad-managed surface.
             </div>
+            {layers.workloads.map((w) => (
+              <div
+                key={w.name}
+                className="flex items-start justify-between gap-2 px-2 py-1.5 text-[12px]"
+              >
+                <div className="min-w-0">
+                  <div className="truncate font-medium text-fg">{w.name}</div>
+                  <div className="text-[11px] text-fg-subtle">{w.chart}</div>
+                </div>
+                <span className="shrink-0 font-mono text-[11px] text-fg-muted">
+                  {w.currentVersion}
+                </span>
+              </div>
+            ))}
           </LayerGroup>
         )}
       </div>
