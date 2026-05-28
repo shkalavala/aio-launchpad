@@ -21,7 +21,19 @@ import { useAppStore } from "@/store/useAppStore";
  */
 export function RecentRollouts() {
   const sessionRollouts = useAppStore((s) => s.sessionRollouts);
-  const items = [...sessionRollouts, ...ROLLOUT_HISTORY].slice(0, 5);
+  const manageInfra = useAppStore((s) => s.manageInfra);
+  const INFRA_KINDS: ReadonlySet<RolloutKind> = new Set<RolloutKind>([
+    "aksee-upgrade",
+    "arc-agent-upgrade",
+    "helm",
+    "script",
+  ]);
+  // Hide infra-kind history when manageInfra is off, so the strip stays
+  // truthful about what the operator can actually do from the current UI.
+  const visible = [...sessionRollouts, ...ROLLOUT_HISTORY].filter(
+    (r) => manageInfra || !INFRA_KINDS.has(r.kind),
+  );
+  const items = visible.slice(0, 5);
   if (items.length === 0) return null;
   return (
     <section className="rounded-md border border-border bg-surface">
@@ -94,6 +106,14 @@ function describeTarget(r: RolloutRecord): string {
       return r.armName ?? "ARM module";
     case "resource":
       return r.resourceLabel ?? "AIO resource re-apply";
+    case "aksee-upgrade":
+      return `AKS-EE → ${r.infraTargetVersion ?? "target"}`;
+    case "arc-agent-upgrade":
+      return `Arc agent → ${r.infraTargetVersion ?? "target"}`;
+    case "helm":
+      return r.helmLabel ?? "Helm chart";
+    case "script":
+      return r.scriptLabel ?? "Arc script step";
   }
 }
 
@@ -103,6 +123,10 @@ const KIND_LABEL: Record<RolloutKind, string> = {
   app: "app",
   arm: "module",
   resource: "aio resource",
+  "aksee-upgrade": "aks-ee",
+  "arc-agent-upgrade": "arc agent",
+  helm: "helm",
+  script: "script",
 };
 
 function KindChip({ kind }: { kind: RolloutKind }) {
