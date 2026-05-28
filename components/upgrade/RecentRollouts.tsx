@@ -120,12 +120,12 @@ function describeTarget(r: RolloutRecord): string {
 const KIND_LABEL: Record<RolloutKind, string> = {
   release: "release",
   install: "install",
-  app: "app",
-  arm: "module",
+  app: "aio solution",
+  arm: "aio module",
   resource: "aio resource",
   "aksee-upgrade": "aks-ee",
   "arc-agent-upgrade": "arc agent",
-  helm: "helm",
+  helm: "app",
   script: "script",
 };
 

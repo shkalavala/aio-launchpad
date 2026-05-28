@@ -56,15 +56,15 @@ export function RolloutKindPicker({ locked }: Props) {
     },
     {
       id: "app",
-      label: "App",
+      label: "AIO Solution",
       icon: Package,
-      hint: "Deploy or upgrade a Scale Kit sample app",
+      hint: "Deploy or upgrade an AIO Solution (Scale Kit sample bundle, ARM/Bicep on top of bare AIO)",
     },
     {
       id: "arm",
-      label: "ARM module",
+      label: "AIO Module",
       icon: Wrench,
-      hint: "Apply a targeted post-deployment Bicep / config change",
+      hint: "Apply a smaller-scoped Solution — same Scale Kit / ARM transport, narrower payload (will collapse into AIO Solution)",
     },
     {
       id: "resource",
@@ -94,9 +94,9 @@ export function RolloutKindPicker({ locked }: Props) {
     },
     {
       id: "helm",
-      label: "Helm chart",
+      label: "App",
       icon: Layers,
-      hint: "Install or upgrade a custom workload helm chart via the Arc Kubernetes proxy",
+      hint: "Customer-owned helm chart on the cluster (via Arc Kubernetes proxy) — NOT an AIO Solution",
     },
     {
       id: "script",
