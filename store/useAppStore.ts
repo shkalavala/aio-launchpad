@@ -148,6 +148,21 @@ interface AppState {
   setDemoMode: (v: boolean) => void;
   toggleDemoMode: () => void;
 
+  // ── Infra scope ─────────────────────────────────────────────────────
+  /**
+   * When true, Launchpad exposes the vertical layers below AIO on the
+   * existing surfaces — cluster (e.g. AKS-EE) and Arc-for-servers agent
+   * become first-class on layered sites, and new rollout kinds
+   * (aksee-upgrade, arc-agent-upgrade, helm, script) are available.
+   * Node / OS / hardware remains read-only context regardless of the
+   * toggle. Default `false` — today's AIO-only experience is unchanged.
+   * Backwards-compatible: sites without `layers` and releases without
+   * sub-pins keep rendering exactly as before.
+   */
+  manageInfra: boolean;
+  setManageInfra: (v: boolean) => void;
+  toggleManageInfra: () => void;
+
   // ── Fleet repo connection (conceptual mock) ─────────────────────────
   /**
    * Mock state for the /connect/ screen. Provider-aware: the user picks
@@ -442,6 +457,11 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   setDemoMode: (v) => set({ demoMode: v }),
   toggleDemoMode: () => set((s) => ({ demoMode: !s.demoMode })),
 
+  // ── Infra-scope slice ─────────────────────────────────────────────
+  manageInfra: false,
+  setManageInfra: (v) => set({ manageInfra: v }),
+  toggleManageInfra: () => set((s) => ({ manageInfra: !s.manageInfra })),
+
   // ── Fleet-repo slice (conceptual) ─────────────────────────────────
   fleetRepo: {
     connected: false,
@@ -513,6 +533,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
     secretsOverlay: s.secretsOverlay,
     sessionRollouts: s.sessionRollouts,
     fleetRepo: s.fleetRepo,
+    manageInfra: s.manageInfra,
   }),
   // Merge persisted state with current defaults so newly-added fields
   // (e.g. bicepPath) are populated on existing installs.
