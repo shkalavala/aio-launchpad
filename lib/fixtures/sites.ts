@@ -42,6 +42,8 @@ export const FACTORY_DISPLAY: Record<string, string> = {
   assembly: "Assembly line",
   bar: "Bar lathes",
   cutting: "Cutting equipment",
+  packaging: "Packaging line",
+  paintshop: "Paint shop",
 };
 
 /** "stockholm" + "SE" → "Stockholm, Sweden" */
@@ -186,17 +188,18 @@ const tplGothenburgCutting: SiteTemplate = {
   properties: { deployOptions: { includeDataflows: true } },
 };
 
-// ── Edge-AKS-EE plant templates ──────────────────────────────────────────────
-// Plants that run AKS-EE on customer-owned Windows Server VMs at the edge
-// (gateway model, not embedded on device). Used by the infra-scope fixture
-// sites so the vertical layer stack (cluster + Arc-server agent + apps)
-// has somewhere to attach. Shape matches the other plant templates.
-const tplStockholmEdgeAksee: SiteTemplate = {
+// ── Edge-gateway plant templates ─────────────────────────────────────────────
+// Plants whose AIO instance runs on a customer-owned Windows Server VM at the
+// edge (gateway model, not embedded on device). Used by the infra-scope
+// fixture sites so the vertical layer stack (cluster + Arc-server agent +
+// workloads) has somewhere to attach. Distro is tenant-scoped (AKS-EE — see
+// tenant.ts) and intentionally NOT carried on the plant label.
+const tplStockholmPackaging: SiteTemplate = {
   apiVersion: "siteops/v1",
   kind: "SiteTemplate",
-  name: "stockholm-edge-aksee",
+  name: "stockholm-packaging",
   inherits: "stockholm.yaml",
-  labels: { plant: "edge-aksee" },
+  labels: { plant: "packaging" },
   parameters: {
     eventHubNamespace: "stockholm-edge-eventhubs",
     dataflowManagedIdentity: {
@@ -213,12 +216,12 @@ const tplStockholmEdgeAksee: SiteTemplate = {
   properties: { deployOptions: { includeDataflows: true } },
 };
 
-const tplHamburgEdgeAksee: SiteTemplate = {
+const tplHamburgPaintshop: SiteTemplate = {
   apiVersion: "siteops/v1",
   kind: "SiteTemplate",
-  name: "hamburg-edge-aksee",
+  name: "hamburg-paintshop",
   inherits: "hamburg.yaml",
-  labels: { plant: "edge-aksee" },
+  labels: { plant: "paintshop" },
   parameters: {
     eventHubNamespace: "hamburg-edge-eventhubs",
     dataflowManagedIdentity: {
@@ -244,8 +247,8 @@ export const TEMPLATES: SiteTemplate[] = [
   tplStockholmBar,
   tplUlmAssembly,
   tplGothenburgCutting,
-  tplStockholmEdgeAksee,
-  tplHamburgEdgeAksee,
+  tplStockholmPackaging,
+  tplHamburgPaintshop,
 ];
 
 const TEMPLATES_BY_NAME: Record<string, SiteTemplate> = Object.fromEntries(
@@ -397,11 +400,11 @@ export const SITES: Site[] = [
   // gated.
   {
     ...leaf(
-      "cont-stockholm-edge-aksee-01",
-      "stockholm-edge-aksee",
+      "cont-stockholm-packaging-01",
+      "stockholm-packaging",
       "prod",
       "rg-stockholm-edge-prod",
-      "cont-stockholm-edge-aksee-01-aio",
+      "cont-stockholm-packaging-01-aio",
     ),
     properties: { aioRelease: "2606" },
     layers: {
@@ -461,11 +464,11 @@ export const SITES: Site[] = [
   },
   {
     ...leaf(
-      "cont-hamburg-edge-aksee-01",
-      "hamburg-edge-aksee",
+      "cont-hamburg-paintshop-01",
+      "hamburg-paintshop",
       "prod",
       "rg-hamburg-edge-prod",
-      "cont-hamburg-edge-aksee-01-aio",
+      "cont-hamburg-paintshop-01-aio",
     ),
     properties: { aioRelease: "2606" },
     layers: {
@@ -568,15 +571,15 @@ const RUNTIME: Record<string, SiteRuntime> = {
     lastDeployAt: "2026-05-15T11:07:00Z",
     environment: "prod",
   },
-  "cont-stockholm-edge-aksee-01": {
-    siteName: "cont-stockholm-edge-aksee-01",
+  "cont-stockholm-packaging-01": {
+    siteName: "cont-stockholm-packaging-01",
     resolvedRelease: "2606",
     health: "healthy",
     lastDeployAt: "2026-05-22T09:14:00Z",
     environment: "prod",
   },
-  "cont-hamburg-edge-aksee-01": {
-    siteName: "cont-hamburg-edge-aksee-01",
+  "cont-hamburg-paintshop-01": {
+    siteName: "cont-hamburg-paintshop-01",
     resolvedRelease: "2606",
     health: "degraded",
     lastDeployAt: "2026-05-20T09:48:00Z",

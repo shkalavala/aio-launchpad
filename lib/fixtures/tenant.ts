@@ -43,7 +43,8 @@ export interface TenantInfo {
 /**
  * Fixture tenant. Matches the slug rendered in TopNav and the enterprise
  * key used by the manifest fixtures (`contoso-industries`). Distro is
- * AKS-EE to match the layered fixture sites (`cont-*-edge-aksee-*`) and
+ * AKS-EE to match the layered fixture sites (`cont-stockholm-packaging-01`,
+ * `cont-hamburg-paintshop-01`) and
  * the Olympus-pattern research note that informed the infra-scope build.
  */
 export const TENANT: TenantInfo = {
