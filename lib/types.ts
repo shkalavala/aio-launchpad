@@ -1,9 +1,21 @@
 // Shared TS types mirroring Scale Kit YAML shapes from context/scale-kit-real-yaml/.
 // Field names are copied verbatim. Do not invent fields.
 
-export type AioReleaseId = "2512" | "2602" | "2603" | "2604" | "2605";
+export type AioReleaseId = "2512" | "2602" | "2603" | "2604" | "2605" | "2606";
 
 export type ReleaseTrain = "stable" | "preview";
+
+/**
+ * Optional pin for a helm-chart workload carried as part of a release.
+ * Only present on releases authored when the `manageInfra` capability is
+ * in scope. AIO-only releases omit it entirely.
+ */
+export interface AppPin {
+  /** Logical chart name as it appears on the cluster. */
+  name: string;
+  /** Versioned chart reference, e.g. "edge-control-3.2.0". */
+  chart: string;
+}
 
 /** Mirrors context/scale-kit-real-yaml/aio-release-*.yaml */
 export interface AioRelease {
@@ -17,6 +29,20 @@ export interface AioRelease {
   secretStoreVersion: string;
   secretStoreTrain: ReleaseTrain;
   isDefault?: boolean;
+  /**
+   * Optional cluster-distro pin (e.g. "aksee-1.7.230"). Present only on
+   * releases authored for the infra-scope capability; lockstep with the
+   * AIO version per decision §6 Q1 of the research note. AIO-only
+   * releases omit this and render unchanged.
+   */
+  clusterPin?: string;
+  /**
+   * Optional Arc-for-servers connectedmachine agent pin (e.g. "1.45").
+   * Same opt-in semantics as clusterPin.
+   */
+  arcAgentPin?: string;
+  /** Optional helm-chart pins shipped together with this release. */
+  appPins?: AppPin[];
 }
 
 export type SiteKind = "SiteTemplate" | "Site";
@@ -61,6 +87,83 @@ export interface Site extends SiteBase {
   kind: "Site";
   subscription: string;
   resourceGroup: string;
+  /**
+   * Optional vertical layer stack below AIO. Present only on sites where
+   * the operator has opted in to the infra-scope capability (and the
+   * `manageInfra` toggle is on). Backwards-compatible: sites without
+   * `layers` render exactly as they do today.
+   *
+   * Node / OS / hardware live in `nodeInfo` as read-only metadata only —
+   * never a rollout target.
+   */
+  layers?: SiteLayers;
+  /** Read-only OS / node context. Surfaced in the drawer; never a rollout target. */
+  nodeInfo?: NodeInfo;
+}
+
+/** Health roll-up for a single layer of a site. Same vocab as site health. */
+export type LayerHealth = HealthStatus;
+
+/**
+ * Drift signal for a layer: whether its `currentVersion` matches what the
+ * site's release pin says the layer should be running. `none` = matches.
+ * `behind` = current is older than the pin. `ahead` = current is newer
+ * (manual override, rare). `unknown` = no release pin defines this layer.
+ */
+export type LayerDrift = "none" | "behind" | "ahead" | "unknown";
+
+/** Common fields every layer carries. */
+export interface LayerBase {
+  /** Version actually running on the site. */
+  currentVersion: string;
+  /** Version the site's release pin says it should be on. */
+  targetVersion: string;
+  /** Health roll-up for the layer. */
+  health: LayerHealth;
+  /** ISO timestamp of the last successful apply for this layer. */
+  lastApplied?: string;
+  /** Drift state of currentVersion vs targetVersion. */
+  drift: LayerDrift;
+}
+
+/** Cluster layer (e.g. AKS-EE 1.7.x). */
+export interface ClusterLayer extends LayerBase {
+  /** Distribution name shown to operators: e.g. "AKS-EE", "K3s". */
+  distro: string;
+}
+
+/** Arc-for-servers agent (connectedmachine agent). */
+export interface ArcAgentLayer extends LayerBase {
+  /** Channel the agent receives updates on, e.g. "stable". */
+  channel?: string;
+}
+
+/** A single helm-deployed workload on the cluster. */
+export interface AppLayer extends LayerBase {
+  /** Logical chart name on the cluster, e.g. "edge-control". */
+  name: string;
+  /** Versioned chart reference, e.g. "edge-control-3.2.0". */
+  chart: string;
+}
+
+/** Vertical layer stack underneath AIO. All members optional. */
+export interface SiteLayers {
+  cluster?: ClusterLayer;
+  arcAgent?: ArcAgentLayer;
+  apps?: AppLayer[];
+}
+
+/**
+ * Read-only OS / node context. Surfaced in the drawer to explain cluster
+ * drift, but never a rollout target — the underlying VM is customer-owned.
+ */
+export interface NodeInfo {
+  /** OS family + version label, e.g. "Windows Server 2022". */
+  os: string;
+  /** Kernel / build identifier when available. */
+  kernel?: string;
+  /** ISO timestamp of the last OS-patch apply known to us. */
+  lastPatched?: string;
 }
 
 /** UI-only runtime overlay. NOT part of the YAML. */

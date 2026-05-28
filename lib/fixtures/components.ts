@@ -80,6 +80,19 @@ const BASE: Record<AioReleaseId, ComponentVersion[]> = {
     { kind: "akri", name: "Akri", version: "0.14.4" },
     { kind: "cert-manager", name: "cert-manager", version: "0.12.0" },
   ],
+  // 2606 is the first infra-scope-capable release; AIO components track the
+  // 2605 baseline with a single dataflow point bump. The sub-pins
+  // (clusterPin / arcAgentPin / appPins) live on the AioRelease itself.
+  "2606": [
+    { kind: "broker", name: "MQTT broker", version: "0.7.5" },
+    { kind: "dataflow", name: "Dataflow", version: "0.7.1" },
+    { kind: "opcua-broker", name: "OPC UA broker", version: "0.7.0" },
+    { kind: "adr", name: "Asset Device Registry", version: "0.5.6" },
+    { kind: "secret-sync", name: "Secret sync controller", version: "1.4.1" },
+    { kind: "schema-registry", name: "Schema registry", version: "0.4.2" },
+    { kind: "akri", name: "Akri", version: "0.14.4" },
+    { kind: "cert-manager", name: "cert-manager", version: "0.12.0" },
+  ],
 };
 
 export const COMPONENTS_BY_RELEASE: Record<AioReleaseId, ComponentVersion[]> = BASE;
