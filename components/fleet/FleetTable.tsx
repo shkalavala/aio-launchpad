@@ -43,6 +43,7 @@ export function FleetTable({ fleet }: { fleet: FleetSite[] }) {
   const ringStrategyId = useAppStore((s) => s.ringStrategyId);
   const rolloutStatus = useAppStore((s) => s.rolloutStatus);
   const siteStatus = useAppStore((s) => s.siteStatus);
+  const manageInfra = useAppStore((s) => s.manageInfra);
 
   const labelIndex = useMemo(() => buildLabelIndex(fleet), [fleet]);
   const ringAssignment = useMemo(
@@ -101,6 +102,14 @@ export function FleetTable({ fleet }: { fleet: FleetSite[] }) {
             <th className="px-2 py-2 font-semibold">Name</th>
             <th className="px-2 py-2 font-semibold">Env</th>
             <th className="px-2 py-2 font-semibold">AIO release</th>
+            {manageInfra && (
+              <th
+                className="px-2 py-2 font-semibold"
+                title="Cluster distro + version below AIO. Drift pill appears when the layer is behind the release pin."
+              >
+                Infra
+              </th>
+            )}
             <th className="px-2 py-2 font-semibold">
               <Link
                 href="/rings"
@@ -198,6 +207,11 @@ export function FleetTable({ fleet }: { fleet: FleetSite[] }) {
                     <VersionBadge id={versionOverrides[fs.site.name] ?? fs.runtime.resolvedRelease} />
                   )}
                 </td>
+                {manageInfra && (
+                  <td className="px-2 py-2">
+                    <InfraCell fs={fs} />
+                  </td>
+                )}
                 <td className="px-2 py-2">
                   {notInstalled ? (
                     <span className="text-[11px] text-fg-subtle">—</span>
@@ -232,13 +246,37 @@ export function FleetTable({ fleet }: { fleet: FleetSite[] }) {
           })}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={9} className="px-4 py-12 text-center text-fg-subtle">
+              <td colSpan={manageInfra ? 10 : 9} className="px-4 py-12 text-center text-fg-subtle">
                 No sites match the current filters.
               </td>
             </tr>
           )}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/**
+ * Compact infra-column cell: cluster distro + current version, with a small
+ * drift pill when the cluster layer is behind its release-pin target. Shows
+ * an em-dash for sites that don't carry a `layers.cluster` block (i.e. the
+ * AIO-only majority).
+ */
+function InfraCell({ fs }: { fs: FleetSite }) {
+  const cluster = fs.site.layers?.cluster;
+  if (!cluster) return <span className="text-[11px] text-fg-subtle">—</span>;
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[12px] text-fg">
+        {cluster.distro} <span className="font-mono text-fg-muted">{cluster.currentVersion}</span>
+      </span>
+      {cluster.drift === "behind" && (
+        <Badge tone="warning">behind → {cluster.targetVersion}</Badge>
+      )}
+      {cluster.drift === "ahead" && (
+        <Badge tone="accent">ahead of pin</Badge>
+      )}
     </div>
   );
 }
