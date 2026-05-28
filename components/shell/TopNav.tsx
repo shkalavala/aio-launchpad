@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Cloud, Sparkles, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
+import { TENANT } from "@/lib/fixtures/tenant";
 
 const NAV = [
   { href: "/before", label: "Why" },
@@ -122,8 +123,16 @@ export function TopNav() {
             {manageInfra ? "on" : "off"}
           </span>
         </button>
-        <span className="text-[12px] text-fg-muted">
-          contoso-industries · sub <span className="font-mono">0000…0000</span>
+        <span
+          className="text-[12px] text-fg-muted"
+          title="Tenant slug + truncated Azure subscription id. Distro chip (when shown) is a tenant-level fact — the entire fleet runs one Kubernetes distribution. See lib/fixtures/tenant.ts."
+        >
+          {TENANT.slug} · sub <span className="font-mono">{TENANT.subscriptionLabel}</span>
+          {manageInfra && (
+            <span className="ml-1.5 rounded-sm border border-border bg-bg-subtle px-1.5 py-px font-mono text-[10px] uppercase tracking-wide text-fg-muted">
+              {TENANT.distroLabel}
+            </span>
+          )}
         </span>
       </div>
     </header>
