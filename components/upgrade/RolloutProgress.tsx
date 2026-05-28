@@ -7,6 +7,7 @@ import { SiteRolloutRow } from "./SiteRolloutRow";
 import { RingGate } from "./RingGate";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
+import { CheckCircle2, Loader2, Circle } from "lucide-react";
 
 interface Props {
   selectedSites: FleetSite[];
@@ -35,6 +36,14 @@ export function RolloutProgress({
   const elapsed = useAppStore((s) => s._rolloutElapsedMs);
   const siteStartMs = useAppStore((s) => s._siteStartMs);
   const advanceGate = useAppStore((s) => s.advanceGate);
+  const rolloutKind = useAppStore((s) => s.rolloutKind);
+
+  // The "script shape" replaces the single-progress-bar SiteRolloutRow with
+  // a per-cmdlet status list. Used for script-style rollouts that run a
+  // PowerShell sequence over Arc Run Command (see olympus-extension-model.md
+  // §3 Tp1+Tp7). aksee-upgrade is the canonical example; raw `script` reuses
+  // the same visual.
+  const isScriptShape = rolloutKind === "script" || rolloutKind === "aksee-upgrade";
 
   const siteByName = new Map(selectedSites.map((s) => [s.site.name, s]));
 
@@ -94,6 +103,16 @@ export function RolloutProgress({
                       : status === "pending"
                         ? 0
                         : 1;
+                  if (isScriptShape) {
+                    return (
+                      <ScriptSiteRow
+                        key={name}
+                        siteName={name}
+                        status={status}
+                        progress={progress}
+                      />
+                    );
+                  }
                   return (
                     <SiteRolloutRow
                       key={name}
@@ -147,4 +166,88 @@ function ringPhase(
     return "active";
   }
   return "future";
+}
+
+// ── Script-shape row ────────────────────────────────────────────────────────
+//
+// Per-site visual for script / aksee-upgrade rollouts. Replaces the single
+// progress bar with a three-cmdlet sequence over Arc Run Command:
+//   1. Start-AksEdgeUpdate                       (stage update payload)
+//   2. Start-AksEdgeControlPlaneUpdate           (with -firstControlPlane $true)
+//   3. Start-AksEdgeWorkerNodeUpdate             (workers, last)
+// Each cmdlet flips through pending → running → done driven by the same
+// site-elapsed clock the bar shape uses (UPGRADE_TIMING.perSiteMs).
+
+const SCRIPT_STEPS = [
+  { label: "Start-AksEdgeUpdate", detail: "stage update payload" },
+  {
+    label: "Start-AksEdgeControlPlaneUpdate",
+    detail: "-firstControlPlane $true",
+  },
+  { label: "Start-AksEdgeWorkerNodeUpdate", detail: "worker nodes" },
+];
+
+type ScriptStepState = "pending" | "running" | "done";
+
+function ScriptSiteRow({
+  siteName,
+  status,
+  progress,
+}: {
+  siteName: string;
+  status: ReturnType<typeof useAppStore.getState>["siteStatus"][string];
+  progress: number;
+}) {
+  // Distribute the 0..1 site progress across the three sub-steps. Anything
+  // upstream of `pending` keeps all sub-steps idle; once `healthy/failed`
+  // they all show as done/failed.
+  const stepStates: ScriptStepState[] = SCRIPT_STEPS.map((_, i) => {
+    if (status === "pending") return "pending";
+    if (status === "healthy" || status === "failed") return "done";
+    // upgrading: split [0, 1] into thirds
+    const lo = i / SCRIPT_STEPS.length;
+    const hi = (i + 1) / SCRIPT_STEPS.length;
+    if (progress >= hi) return "done";
+    if (progress > lo) return "running";
+    return "pending";
+  });
+
+  return (
+    <div className="border-t border-border-subtle px-3 py-2 text-[12px]">
+      <div className="mb-1 flex items-center gap-2">
+        <span className="font-mono text-fg">{siteName}</span>
+        {status === "healthy" && <Badge tone="success">Completed</Badge>}
+        {status === "failed" && <Badge tone="danger">Failed</Badge>}
+        {status === "upgrading" && <Badge tone="accent">Running</Badge>}
+        {status === "pending" && <Badge tone="neutral">Queued</Badge>}
+      </div>
+      <ol className="ml-2 space-y-0.5">
+        {SCRIPT_STEPS.map((step, i) => {
+          const s = stepStates[i];
+          const Icon =
+            s === "done" ? CheckCircle2 : s === "running" ? Loader2 : Circle;
+          return (
+            <li
+              key={step.label}
+              className={cn(
+                "flex items-center gap-2",
+                s === "pending" ? "text-fg-subtle" : "text-fg",
+              )}
+            >
+              <Icon
+                className={cn(
+                  "h-3.5 w-3.5 shrink-0",
+                  s === "done" && "text-success-fg",
+                  s === "running" && "animate-spin text-accent",
+                  s === "pending" && "text-fg-subtle",
+                )}
+              />
+              <span className="font-mono text-[11px]">{step.label}</span>
+              <span className="text-[11px] text-fg-subtle">— {step.detail}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
 }
