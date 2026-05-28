@@ -12,7 +12,7 @@ const NAV = [
   { href: "/preflight", label: "Pre-flight" },
   { href: "/fleet", label: "Fleet" },
   { href: "/releases", label: "Releases" },
-  { href: "/apps", label: "Apps & Modules" },
+  { href: "/apps", label: "AIO Solutions" },
   { href: "/resources", label: "Resources" },
   { href: "/rollout", label: "Rollout" },
   { href: "/secrets", label: "Secrets" },

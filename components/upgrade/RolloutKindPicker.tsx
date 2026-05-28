@@ -2,11 +2,10 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpCircle, Cloud, Package, Wrench, Sprout, Search, X, Cpu, Layers, Terminal, Server } from "lucide-react";
+import { ArrowUpCircle, Cloud, Package, Sprout, Search, X, Cpu, Layers, Terminal, Server } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { RELEASES, DEFAULT_RELEASE } from "@/lib/fixtures/releases";
-import { SAMPLE_APPS } from "@/lib/fixtures/sampleApps";
-import { ARM_MODULES } from "@/lib/fixtures/armModules";
+import { SOLUTIONS, type AioSolution } from "@/lib/fixtures/solutions";
 import { AIO_RESOURCES } from "@/lib/fixtures/aioResources";
 import type { AioReleaseId } from "@/lib/types";
 import type { RolloutKind } from "@/lib/fixtures/rollouts";
@@ -41,7 +40,7 @@ export function RolloutKindPicker({ locked }: Props) {
   const resourceIds = useAppStore((s) => s.rolloutResourceIds);
   const setResourceIds = useAppStore((s) => s.setRolloutResourceIds);
 
-  const tabs: Array<{ id: Kind; label: string; icon: typeof ArrowUpCircle; hint: string }> = [
+  const tabs: Array<{ id: Kind; label: string; icon: typeof ArrowUpCircle; hint: string; activeWhen?: (k: Kind) => boolean }> = [
     {
       id: "release",
       label: "Upgrade AIO",
@@ -55,16 +54,14 @@ export function RolloutKindPicker({ locked }: Props) {
       hint: "Install AIO on sites declared in your manifest that don’t have it yet",
     },
     {
+      // Unified AIO Solutions tab. The tab's nominal id is "app" (any sample
+      // solution dispatches via the app rollout kind); module-tagged
+      // solutions dispatch via "arm". Both light up this tab.
       id: "app",
       label: "AIO Solution",
       icon: Package,
-      hint: "Deploy or upgrade an AIO Solution (Scale Kit sample bundle, ARM/Bicep on top of bare AIO)",
-    },
-    {
-      id: "arm",
-      label: "AIO Module",
-      icon: Wrench,
-      hint: "Apply a smaller-scoped Solution — same Scale Kit / ARM transport, narrower payload (will collapse into AIO Solution)",
+      hint: "Deploy or apply an AIO Solution — unified Scale Kit samples (sample + module) and customer-authored solutions",
+      activeWhen: (k) => k === "app" || k === "arm",
     },
     {
       id: "resource",
@@ -123,7 +120,7 @@ export function RolloutKindPicker({ locked }: Props) {
       <div className="flex flex-wrap gap-1 px-3 pt-2">
         {tabs.map((t) => {
           const Icon = t.icon;
-          const active = kind === t.id;
+          const active = t.activeWhen ? t.activeWhen(kind) : kind === t.id;
           return (
             <button
               key={t.id}
@@ -218,59 +215,52 @@ export function RolloutKindPicker({ locked }: Props) {
           </PayloadRow>
         )}
 
-        {kind === "app" && (
-          <PayloadRow label="App to deploy">
+        {(kind === "app" || kind === "arm") && (
+          <PayloadRow label="Solution">
             <select
-              value={appId ?? ""}
+              value={kind === "app" ? appId ?? "" : armId ?? ""}
               disabled={locked}
-              onChange={(e) => setAppId(e.target.value || null)}
+              onChange={(e) => {
+                const id = e.target.value || null;
+                if (!id) {
+                  setAppId(null);
+                  setArmId(null);
+                  return;
+                }
+                const sol = SOLUTIONS.find((s) => s.id === id);
+                if (!sol) return;
+                // Dispatch to the underlying rollout kind for this solution.
+                // Clear the other slice so /rollout doesn't read stale state.
+                setKind(sol.rolloutKind);
+                if (sol.rolloutKind === "app") {
+                  setAppId(sol.id);
+                  setArmId(null);
+                } else {
+                  setArmId(sol.id);
+                  setAppId(null);
+                }
+              }}
               className="h-7 rounded-sm border border-border bg-bg px-2 text-[12px] disabled:opacity-60"
             >
-              <option value="">— pick an app —</option>
-              {SAMPLE_APPS.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
+              <option value="">— pick a solution —</option>
+              <optgroup label="Sample (helm-shaped, installs pods)">
+                {SOLUTIONS.filter((s) => s.tag === "sample").map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Module (ARM/Bicep, patches resources)">
+                {SOLUTIONS.filter((s) => s.tag === "module").map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </optgroup>
             </select>
-            {appId ? (
-              <span className="text-[11px] text-fg-subtle">
-                {SAMPLE_APPS.find((a) => a.id === appId)?.tagline}
-              </span>
-            ) : (
-              <span className="text-[11px] text-fg-subtle">
-                Browse Apps & Modules at <span className="font-mono">/apps</span>.
-              </span>
-            )}
+            <SolutionHint kind={kind} appId={appId} armId={armId} />
           </PayloadRow>
         )}
-
-        {kind === "arm" && (
-          <PayloadRow label="Module">
-            <select
-              value={armId ?? ""}
-              disabled={locked}
-              onChange={(e) => setArmId(e.target.value || null)}
-              className="h-7 rounded-sm border border-border bg-bg px-2 text-[12px] disabled:opacity-60"
-            >
-              <option value="">— pick a module —</option>
-              {ARM_MODULES.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-            {armId ? (
-              <span className="text-[11px] text-fg-subtle">
-                {ARM_MODULES.find((m) => m.id === armId)?.tagline}
-              </span>
-            ) : (
-              <span className="text-[11px] text-fg-subtle">
-                Targeted post-deployment Bicep / config change from{" "}
-                <span className="font-mono">samples/modules/</span>.
-              </span>
-            )}
-          </PayloadRow>
         )}
 
         {kind === "resource" && (
@@ -335,6 +325,32 @@ function PayloadRow({ label, children }: { label: string; children: React.ReactN
       <span className="font-medium text-fg">{label}</span>
       {children}
     </label>
+  );
+}
+
+function SolutionHint({
+  kind,
+  appId,
+  armId,
+}: {
+  kind: "app" | "arm";
+  appId: string | null;
+  armId: string | null;
+}) {
+  const id = kind === "app" ? appId : armId;
+  if (!id) {
+    return (
+      <span className="text-[11px] text-fg-subtle">
+        Browse AIO Solutions at <span className="font-mono">/apps</span>.
+      </span>
+    );
+  }
+  const sol = SOLUTIONS.find((s) => s.id === id);
+  if (!sol) return null;
+  return (
+    <span className="text-[11px] text-fg-subtle">
+      <span className="font-mono uppercase text-fg-muted">{sol.tag}</span> · {sol.tagline}
+    </span>
   );
 }
 

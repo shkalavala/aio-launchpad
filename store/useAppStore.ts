@@ -519,11 +519,22 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
     }),
 }), {
   name: PERSIST_KEY,
-  version: 3,
+  version: 4,
   storage: createJSONStorage(() => localStorage),
-  // Old persisted state (pre-bicepPath) is forward-compatible — keep it, let
-  // `merge` fill in defaults for new fields.
-  migrate: (persisted) => persisted as AppState,
+  // v4: arc-agent-upgrade was split into arc-server-agent-upgrade and
+  // arc-k8s-agent-upgrade. Map legacy persisted sessionRollouts.kind to the
+  // arc-server variant so old history entries don't poison switch statements.
+  migrate: (persisted, version) => {
+    const state = persisted as AppState | undefined;
+    if (state && version < 4 && Array.isArray(state.sessionRollouts)) {
+      state.sessionRollouts = state.sessionRollouts.map((r) =>
+        (r.kind as string) === "arc-agent-upgrade"
+          ? { ...r, kind: "arc-server-agent-upgrade" as RolloutKind }
+          : r,
+      );
+    }
+    return state as AppState;
+  },
   // Persist only the visible-state overlays. Rollout in-flight state is
   // intentionally not persisted — the ticker won't resume cleanly across
   // reloads and the operator should always start a rollout fresh.
