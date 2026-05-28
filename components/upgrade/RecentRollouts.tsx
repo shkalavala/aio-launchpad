@@ -102,9 +102,9 @@ function describeTarget(r: RolloutRecord): string {
     case "install":
       return `Install AIO ${r.releaseId ?? ""}`.trim();
     case "app":
-      return r.appName ?? "App deploy";
+      return r.appName ?? "AIO Solution";
     case "arm":
-      return r.armName ?? "ARM module";
+      return r.armName ?? "AIO Solution (module)";
     case "resource":
       return r.resourceLabel ?? "AIO resource re-apply";
     case "aksee-upgrade":
@@ -124,7 +124,7 @@ const KIND_LABEL: Record<RolloutKind, string> = {
   release: "release",
   install: "install",
   app: "aio solution",
-  arm: "aio module",
+  arm: "aio solution (module)",
   resource: "aio resource",
   "aksee-upgrade": "aks-ee",
   "arc-server-agent-upgrade": "arc-server",

@@ -59,19 +59,19 @@ export function UpgradeCommandBar({ targetCount, releaseSnapshotForSelected }: P
     if (rolloutKind === "app") {
       const app = SAMPLE_APPS.find((a) => a.id === rolloutAppId);
       return {
-        ctaLabel: app ? `Deploy ${app.name}` : "Deploy app",
+        ctaLabel: app ? `Deploy ${app.name}` : "Deploy Solution",
         ctaIcon: Package,
         payloadOk: !!rolloutAppId,
-        payloadHint: "Pick an app above",
+        payloadHint: "Pick a Solution above",
       };
     }
     if (rolloutKind === "arm") {
       const mod = ARM_MODULES.find((m) => m.id === rolloutArmId);
       return {
-        ctaLabel: mod ? `Apply ${mod.name}` : "Apply module",
+        ctaLabel: mod ? `Apply ${mod.name}` : "Apply Solution",
         ctaIcon: Wrench,
         payloadOk: !!rolloutArmId,
-        payloadHint: "Pick a module above",
+        payloadHint: "Pick a Solution above",
       };
     }
     if (rolloutKind === "install") {

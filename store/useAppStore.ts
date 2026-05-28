@@ -695,7 +695,7 @@ function buildSessionRecord(
   }
   if (s.rolloutKind === "arm") {
     const mod = ARM_MODULES.find((m) => m.id === s.rolloutArmId);
-    return { ...base, kind: "arm", armName: mod?.name ?? "ARM module" };
+    return { ...base, kind: "arm", armName: mod?.name ?? "AIO Solution (module)" };
   }
   if (s.rolloutKind === "resource") {
     const n = s.rolloutResourceIds.length;

@@ -244,11 +244,11 @@ function RolloutPageInner() {
     if (rolloutKind === "arm") {
       const mod = ARM_MODULES.find((m) => m.id === rolloutArmId);
       return {
-        pageTitle: mod ? `Apply module · ${mod.name}` : "Apply ARM module",
+        pageTitle: mod ? `Apply Solution · ${mod.name}` : "Apply AIO Solution",
         pageSubtitle: mod
           ? `${mod.tagline}. Same ring/gate/verify pipeline as an AIO upgrade.`
-          : "Targeted post-deployment Bicep change. Pick a module, pick sites, stage in rings.",
-        changeLabel: mod ? `Apply ${mod.name}` : "Apply module",
+          : "Targeted post-deployment AIO Solution (module). Pick a Solution, pick sites, stage in rings.",
+        changeLabel: mod ? `Apply ${mod.name}` : "Apply Solution",
       };
     }
     if (rolloutKind === "resource") {
@@ -288,7 +288,7 @@ function RolloutPageInner() {
         <div className="min-h-0 flex-1 overflow-auto bg-bg">
           <EmptyFleetCard
             title="Nothing to roll out yet"
-            body="Rollouts stage a change (AIO release, sample app, or ARM module) across sites in rings, with gates and health checks between rings. Add at least one site to plan a rollout."
+            body="Rollouts stage a change (AIO release, AIO Solution, or AIO resource re-apply) across sites in rings, with gates and health checks between rings. Add at least one site to plan a rollout."
           />
         </div>
       </section>
