@@ -125,8 +125,9 @@ export default function ConnectPage() {
             <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-fg-muted">
               Launchpad is a thin control surface over a fleet repository — the
               manifests, releases, secrets and ARM resources for your AIO
-              instances. Pick where that fleet lives. Some paths need GitHub;
-              others (local checkout, demo) need nothing at all.
+              instances. Pick where that fleet lives. Some paths need GitHub
+              or Azure DevOps; others (local checkout, demo) need nothing at
+              all.
             </p>
           </div>
           {currentStep === 3 && (
@@ -307,15 +308,15 @@ function StepSource({
           />
           <SourceCard
             icon={<GitFork className="h-4 w-4" />}
-            title="Fork Scale Kit now"
+            title="Start from Scale Kit"
             body={
               <>
-                Create a fresh fork of{" "}
+                Lift{" "}
                 <span className="font-mono text-[11px]">{SCALE_KIT_UPSTREAM}</span>{" "}
-                into your account or org.
+                into your account or org — fork on GitHub or import on Azure DevOps.
               </>
             }
-            authTag="GitHub auth"
+            authTag="Git auth"
             authTone="accent"
             onClick={() => onPickSource("fresh-fork")}
           />
@@ -497,7 +498,7 @@ function StepGithubAuth({
   const provider = useAppStore((s) => s.fleetRepo.provider);
   const setFleetRepo = useAppStore((s) => s.setFleetRepo);
   const sourceLabel =
-    sourceMode === "existing-fork" ? "Existing fleet repo" : "Fork Scale Kit now";
+    sourceMode === "existing-fork" ? "Existing fleet repo" : "Start from Scale Kit";
 
   // PAT subview — same form for both providers, only the placeholder + label
   // text shift.
