@@ -2,16 +2,17 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpCircle, Cloud, Package, Wrench, Sprout, Search, X } from "lucide-react";
+import { ArrowUpCircle, Cloud, Package, Wrench, Sprout, Search, X, Cpu, Layers, Terminal, Server } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { RELEASES, DEFAULT_RELEASE } from "@/lib/fixtures/releases";
 import { SAMPLE_APPS } from "@/lib/fixtures/sampleApps";
 import { ARM_MODULES } from "@/lib/fixtures/armModules";
 import { AIO_RESOURCES } from "@/lib/fixtures/aioResources";
 import type { AioReleaseId } from "@/lib/types";
+import type { RolloutKind } from "@/lib/fixtures/rollouts";
 import { cn } from "@/lib/utils";
 
-type Kind = "release" | "app" | "arm" | "install" | "resource";
+type Kind = RolloutKind;
 
 interface Props {
   locked: boolean;
@@ -29,6 +30,7 @@ interface Props {
 export function RolloutKindPicker({ locked }: Props) {
   const kind = useAppStore((s) => s.rolloutKind);
   const setKind = useAppStore((s) => s.setRolloutKind);
+  const manageInfra = useAppStore((s) => s.manageInfra);
 
   const targetReleaseId = useAppStore((s) => s.targetReleaseId);
   const setTargetRelease = useAppStore((s) => s.setTargetRelease);
@@ -72,6 +74,38 @@ export function RolloutKindPicker({ locked }: Props) {
     },
   ];
 
+  // Infra & workloads kinds — visible only when manageInfra=true. These run
+  // over the Arc transport: aksee-upgrade / arc-agent-upgrade use Arc Run
+  // Command to drive PowerShell on the node; helm uses the Arc Kubernetes
+  // proxy. `script` is the generic Arc Run Command step exposed for ad-hoc
+  // operator scripts. See private/Olympus/olympus-extension-model.md §4.
+  const infraTabs: Array<{ id: Kind; label: string; icon: typeof ArrowUpCircle; hint: string }> = [
+    {
+      id: "aksee-upgrade",
+      label: "AKS-EE upgrade",
+      icon: Cpu,
+      hint: "Stage + apply an AKS-EE cluster upgrade over Arc Run Command (three-cmdlet sequence)",
+    },
+    {
+      id: "arc-agent-upgrade",
+      label: "Arc-agent upgrade",
+      icon: Server,
+      hint: "Upgrade the Arc-for-servers connectedmachine agent on the underlying VMs",
+    },
+    {
+      id: "helm",
+      label: "Helm chart",
+      icon: Layers,
+      hint: "Install or upgrade a custom workload helm chart via the Arc Kubernetes proxy",
+    },
+    {
+      id: "script",
+      label: "Script (Arc)",
+      icon: Terminal,
+      hint: "Run an ad-hoc PowerShell / shell script on selected sites via Arc Run Command",
+    },
+  ];
+
   return (
     <section className="rounded border border-border bg-surface">
       <header className="border-b border-border-subtle px-3 py-2">
@@ -103,6 +137,37 @@ export function RolloutKindPicker({ locked }: Props) {
           );
         })}
       </div>
+
+      {manageInfra && (
+        <>
+          <div className="mt-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">
+            Infra &amp; workloads
+          </div>
+          <div className="flex flex-wrap gap-1 px-3 pt-1">
+            {infraTabs.map((t) => {
+              const Icon = t.icon;
+              const active = kind === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setKind(t.id)}
+                  disabled={locked}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-[12px] transition-colors disabled:opacity-60",
+                    active
+                      ? "border-accent bg-accent-subtle text-accent"
+                      : "border-border bg-bg text-fg-muted hover:border-accent/40 hover:text-fg",
+                  )}
+                  title={t.hint}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       <div className="px-3 pb-3 pt-2">
         {kind === "release" && (
@@ -208,6 +273,40 @@ export function RolloutKindPicker({ locked }: Props) {
             onChange={setResourceIds}
             locked={locked}
           />
+        )}
+
+        {/* ── Infra-scope payload rows ─────────────────────────────────────────── */}
+        {kind === "aksee-upgrade" && (
+          <PayloadRow label="AKS-EE target">
+            <span className="font-mono text-[12px] text-fg">aksee-1.7.230</span>
+            <span className="text-[11px] text-fg-subtle">
+              Three-cmdlet stage → control-plane → worker sequence over Arc Run Command.
+            </span>
+          </PayloadRow>
+        )}
+        {kind === "arc-agent-upgrade" && (
+          <PayloadRow label="Arc-server agent target">
+            <span className="font-mono text-[12px] text-fg">1.45.01781</span>
+            <span className="text-[11px] text-fg-subtle">
+              Upgrades the connectedmachine agent on the underlying VMs.
+            </span>
+          </PayloadRow>
+        )}
+        {kind === "helm" && (
+          <PayloadRow label="Helm chart">
+            <span className="font-mono text-[12px] text-fg">edge-control-3.2.0</span>
+            <span className="text-[11px] text-fg-subtle">
+              Issued through the Arc Kubernetes proxy on the target cluster.
+            </span>
+          </PayloadRow>
+        )}
+        {kind === "script" && (
+          <PayloadRow label="Script step">
+            <span className="font-mono text-[12px] text-fg">ad-hoc.ps1</span>
+            <span className="text-[11px] text-fg-subtle">
+              Generic Arc Run Command step. Use for one-off ops; persistent ops should live in a release.
+            </span>
+          </PayloadRow>
         )}
       </div>
     </section>
