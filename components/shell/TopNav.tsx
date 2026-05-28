@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Cloud, Sparkles } from "lucide-react";
+import { Cloud, Sparkles, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -32,6 +32,8 @@ export function TopNav() {
   const pathname = usePathname();
   const demoMode = useAppStore((s) => s.demoMode);
   const toggleDemoMode = useAppStore((s) => s.toggleDemoMode);
+  const manageInfra = useAppStore((s) => s.manageInfra);
+  const toggleManageInfra = useAppStore((s) => s.toggleManageInfra);
   return (
     <header className="flex h-12 items-center gap-6 border-b border-border bg-surface px-4">
       <div className="flex items-center gap-2 font-semibold text-fg">
@@ -92,6 +94,32 @@ export function TopNav() {
             )}
           >
             {demoMode ? "on" : "off"}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={toggleManageInfra}
+          title={
+            manageInfra
+              ? "Infra scope is on — Launchpad exposes cluster + Arc-agent layers and infra rollout kinds. Click to scope back to AIO only."
+              : "Infra scope is off — Launchpad manages AIO only. Click to also expose cluster (e.g. AKS-EE) and Arc-for-servers agent on layered sites."
+          }
+          className={cn(
+            "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-medium transition-colors",
+            manageInfra
+              ? "border-accent/40 bg-accent-subtle text-accent hover:border-accent"
+              : "border-border bg-bg-subtle text-fg-muted hover:border-accent hover:text-accent",
+          )}
+        >
+          <Layers className="h-3 w-3" />
+          Manage infra
+          <span
+            className={cn(
+              "ml-0.5 rounded-full px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide",
+              manageInfra ? "bg-accent text-white" : "bg-border-strong text-fg-muted",
+            )}
+          >
+            {manageInfra ? "on" : "off"}
           </span>
         </button>
         <span className="text-[12px] text-fg-muted">
