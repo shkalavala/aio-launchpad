@@ -261,7 +261,6 @@ export function RolloutKindPicker({ locked }: Props) {
             <SolutionHint kind={kind} appId={appId} armId={armId} />
           </PayloadRow>
         )}
-        )}
 
         {kind === "resource" && (
           <ResourcePickerInline
