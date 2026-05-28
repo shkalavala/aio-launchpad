@@ -158,6 +158,7 @@ export default function ReleasesPage() {
           <div className="flex flex-col gap-4">
             <ReleaseHeader release={selected} usage={usageByRelease[selected.id] ?? 0} />
             <PinsTable release={selected} previous={previous} />
+            {hasInfraSubPins(selected) && <InfraSubPinsPanel release={selected} />}
             <SitesOnRelease release={selected} sites={sitesOnSelected} />
           </div>
         </div>
@@ -393,6 +394,64 @@ function HealthChip({ status }: { status: FleetSite["runtime"]["health"] }) {
     <span className={cn("inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium", tone)}>
       {status}
     </span>
+  );
+}
+
+/**
+ * True when the release carries any optional infra-scope sub-pin
+ * (clusterPin, arcAgentPin, or any appPins entries). Used to decide
+ * whether the InfraSubPinsPanel renders.
+ */
+function hasInfraSubPins(r: AioRelease): boolean {
+  return (
+    Boolean(r.clusterPin) ||
+    Boolean(r.arcAgentPin) ||
+    (Array.isArray(r.appPins) && r.appPins.length > 0)
+  );
+}
+
+function InfraSubPinsPanel({ release }: { release: AioRelease }) {
+  return (
+    <section className="rounded border border-border bg-surface">
+      <header className="flex items-center justify-between border-b border-border-subtle px-3 py-2">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
+          Infra sub-pins
+        </h3>
+        <span className="text-[11px] text-fg-subtle">
+          Lockstep with this release. Apply to sites that opt in to the infra layers.
+        </span>
+      </header>
+      <table className="w-full text-[12px]">
+        <thead className="bg-bg-subtle text-left text-[11px] uppercase tracking-wide text-fg-muted">
+          <tr>
+            <th className="w-[160px] px-3 py-1.5 font-medium">Layer</th>
+            <th className="px-3 py-1.5 font-medium">Pinned to</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border-subtle">
+          {release.clusterPin && (
+            <tr>
+              <td className="px-3 py-1.5 text-fg-muted">Cluster</td>
+              <td className="px-3 py-1.5 font-mono text-fg">{release.clusterPin}</td>
+            </tr>
+          )}
+          {release.arcAgentPin && (
+            <tr>
+              <td className="px-3 py-1.5 text-fg-muted">Arc-server agent</td>
+              <td className="px-3 py-1.5 font-mono text-fg">{release.arcAgentPin}</td>
+            </tr>
+          )}
+          {release.appPins?.map((p) => (
+            <tr key={p.name}>
+              <td className="px-3 py-1.5 text-fg-muted">
+                App · <span className="font-mono text-fg">{p.name}</span>
+              </td>
+              <td className="px-3 py-1.5 font-mono text-fg">{p.chart}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
   );
 }
 
