@@ -186,6 +186,55 @@ const tplGothenburgCutting: SiteTemplate = {
   properties: { deployOptions: { includeDataflows: true } },
 };
 
+// ── Edge-AKS-EE plant templates ──────────────────────────────────────────────
+// Plants that run AKS-EE on customer-owned Windows Server VMs at the edge
+// (gateway model, not embedded on device). Used by the infra-scope fixture
+// sites so the vertical layer stack (cluster + Arc-server agent + apps)
+// has somewhere to attach. Shape matches the other plant templates.
+const tplStockholmEdgeAksee: SiteTemplate = {
+  apiVersion: "siteops/v1",
+  kind: "SiteTemplate",
+  name: "stockholm-edge-aksee",
+  inherits: "stockholm.yaml",
+  labels: { plant: "edge-aksee" },
+  parameters: {
+    eventHubNamespace: "stockholm-edge-eventhubs",
+    dataflowManagedIdentity: {
+      clientId: "88888888-8888-8888-8888-888888888888",
+      tenantId: "22222222-2222-2222-2222-222222222222",
+    },
+    networking: {
+      vnetResourceGroup: "rg-network-stockholm",
+      vnetName: "vnet-stockholm-edge",
+      subnetName: "snet-iot",
+      privateDnsZoneIds: [],
+    },
+  },
+  properties: { deployOptions: { includeDataflows: true } },
+};
+
+const tplHamburgEdgeAksee: SiteTemplate = {
+  apiVersion: "siteops/v1",
+  kind: "SiteTemplate",
+  name: "hamburg-edge-aksee",
+  inherits: "hamburg.yaml",
+  labels: { plant: "edge-aksee" },
+  parameters: {
+    eventHubNamespace: "hamburg-edge-eventhubs",
+    dataflowManagedIdentity: {
+      clientId: "99999999-9999-9999-9999-999999999999",
+      tenantId: "55555555-5555-5555-5555-555555555555",
+    },
+    networking: {
+      vnetResourceGroup: "rg-network-hamburg",
+      vnetName: "vnet-hamburg-edge",
+      subnetName: "snet-iot",
+      privateDnsZoneIds: [],
+    },
+  },
+  properties: { deployOptions: { includeDataflows: true } },
+};
+
 export const TEMPLATES: SiteTemplate[] = [
   tplContosoAb,
   tplStockholm,
@@ -195,6 +244,8 @@ export const TEMPLATES: SiteTemplate[] = [
   tplStockholmBar,
   tplUlmAssembly,
   tplGothenburgCutting,
+  tplStockholmEdgeAksee,
+  tplHamburgEdgeAksee,
 ];
 
 const TEMPLATES_BY_NAME: Record<string, SiteTemplate> = Object.fromEntries(
@@ -272,6 +323,111 @@ export const SITES: Site[] = [
     "rg-gothenburg-cutting-prod",
     "gothenburg-cutting-prod-aio",
   ),
+
+  // ── Infra-scope fixture sites ──────────────────────────────────────────────────────
+  // Two AKS-EE-on-Windows-Server edge gateway sites that demonstrate the
+  // vertical layer stack (cluster + Arc-server agent + apps) when the
+  // `manageInfra` toggle is on. Their leaf names carry the cont- prefix to
+  // distinguish them as the post-infra-scope fixtures. They render exactly
+  // like the other sites when the toggle is off — the layer surfaces are
+  // gated.
+  {
+    ...leaf(
+      "cont-stockholm-edge-aksee-01",
+      "stockholm-edge-aksee",
+      "prod",
+      "rg-stockholm-edge-prod",
+      "cont-stockholm-edge-aksee-01-aio",
+    ),
+    properties: { aioRelease: "2606" },
+    layers: {
+      cluster: {
+        distro: "AKS-EE",
+        currentVersion: "1.7.220",
+        targetVersion: "1.7.230",
+        health: "healthy",
+        lastApplied: "2026-04-30T08:14:00Z",
+        drift: "behind",
+      },
+      arcAgent: {
+        currentVersion: "1.45.01781",
+        targetVersion: "1.45.01781",
+        channel: "stable",
+        health: "healthy",
+        lastApplied: "2026-05-12T03:22:00Z",
+        drift: "none",
+      },
+      apps: [
+        {
+          name: "edge-control",
+          chart: "edge-control-3.2.0",
+          currentVersion: "3.2.0",
+          targetVersion: "3.2.0",
+          health: "healthy",
+          lastApplied: "2026-05-18T11:02:00Z",
+          drift: "none",
+        },
+        {
+          name: "edge-telemetry",
+          chart: "edge-telemetry-1.4.2",
+          currentVersion: "1.4.1",
+          targetVersion: "1.4.2",
+          health: "degraded",
+          lastApplied: "2026-05-02T14:55:00Z",
+          drift: "behind",
+        },
+      ],
+    },
+    nodeInfo: {
+      os: "Windows Server 2022",
+      kernel: "10.0.20348.2402",
+      lastPatched: "2026-05-14T02:00:00Z",
+    },
+  },
+  {
+    ...leaf(
+      "cont-hamburg-edge-aksee-01",
+      "hamburg-edge-aksee",
+      "prod",
+      "rg-hamburg-edge-prod",
+      "cont-hamburg-edge-aksee-01-aio",
+    ),
+    properties: { aioRelease: "2606" },
+    layers: {
+      cluster: {
+        distro: "AKS-EE",
+        currentVersion: "1.7.230",
+        targetVersion: "1.7.230",
+        health: "healthy",
+        lastApplied: "2026-05-20T09:48:00Z",
+        drift: "none",
+      },
+      arcAgent: {
+        currentVersion: "1.44.00992",
+        targetVersion: "1.45.01781",
+        channel: "stable",
+        health: "healthy",
+        lastApplied: "2026-03-28T07:12:00Z",
+        drift: "behind",
+      },
+      apps: [
+        {
+          name: "edge-control",
+          chart: "edge-control-3.2.0",
+          currentVersion: "3.2.0",
+          targetVersion: "3.2.0",
+          health: "healthy",
+          lastApplied: "2026-05-21T16:30:00Z",
+          drift: "none",
+        },
+      ],
+    },
+    nodeInfo: {
+      os: "Windows Server 2022",
+      kernel: "10.0.20348.2402",
+      lastPatched: "2026-05-10T02:00:00Z",
+    },
+  },
 ];
 
 // ── Runtime overlay (UI-only) ────────────────────────────────────────────────
@@ -326,6 +482,20 @@ const RUNTIME: Record<string, SiteRuntime> = {
     resolvedRelease: "2605",
     health: "healthy",
     lastDeployAt: "2026-05-15T11:07:00Z",
+    environment: "prod",
+  },
+  "cont-stockholm-edge-aksee-01": {
+    siteName: "cont-stockholm-edge-aksee-01",
+    resolvedRelease: "2606",
+    health: "healthy",
+    lastDeployAt: "2026-05-22T09:14:00Z",
+    environment: "prod",
+  },
+  "cont-hamburg-edge-aksee-01": {
+    siteName: "cont-hamburg-edge-aksee-01",
+    resolvedRelease: "2606",
+    health: "degraded",
+    lastDeployAt: "2026-05-20T09:48:00Z",
     environment: "prod",
   },
 };
