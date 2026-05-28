@@ -66,6 +66,7 @@ export function SiteDetailDrawer({
   }, [fs, onClose]);
 
   const versionOverrides = useAppStore((s) => s.versionOverrides);
+  const manageInfra = useAppStore((s) => s.manageInfra);
 
   if (!fs) return null;
 
@@ -230,6 +231,10 @@ export function SiteDetailDrawer({
                 </p>
               )}
             </DetailSection>
+
+            {manageInfra && fs.site.layers && (
+              <InfraLayersSection site={fs} />
+            )}
 
             <DetailSection
               icon={Cloud}
@@ -446,6 +451,151 @@ function DetailSection({
       </header>
       <div>{children}</div>
     </section>
+  );
+}
+
+/**
+ * Per-layer breakdown for sites that carry the infra-scope layer stack.
+ * Sits below the AIO "Components on release" section so that section
+ * keeps rendering exactly as it does for AIO-only sites. Surfaces:
+ *  - Apps  (each helm-deployed workload from layers.apps)
+ *  - AIO   (link back to the components list above, for grouping)
+ *  - Cluster (e.g. AKS-EE) with current/target version + drift pill
+ *  - Arc Agent
+ *  - Node (read-only OS / kernel / last-patched — never a rollout target)
+ */
+function InfraLayersSection({ site: fs }: { site: FleetSite }) {
+  const layers = fs.site.layers;
+  const node = fs.site.nodeInfo;
+  if (!layers && !node) return null;
+  return (
+    <DetailSection icon={Layers} title="Infra layers">
+      <div className="space-y-2">
+        {layers?.apps && layers.apps.length > 0 && (
+          <LayerGroup label={`Apps (${layers.apps.length})`}>
+            {layers.apps.map((a) => (
+              <LayerRow
+                key={a.name}
+                title={a.name}
+                subtitle={a.chart}
+                current={a.currentVersion}
+                target={a.targetVersion}
+                drift={a.drift}
+                health={a.health}
+                lastApplied={a.lastApplied}
+              />
+            ))}
+          </LayerGroup>
+        )}
+        <LayerGroup label="AIO">
+          <p className="px-2 py-1 text-[11px] text-fg-subtle">
+            See <span className="font-medium text-fg">Components on release</span> above.
+          </p>
+        </LayerGroup>
+        {layers?.cluster && (
+          <LayerGroup label="Cluster">
+            <LayerRow
+              title={layers.cluster.distro}
+              current={layers.cluster.currentVersion}
+              target={layers.cluster.targetVersion}
+              drift={layers.cluster.drift}
+              health={layers.cluster.health}
+              lastApplied={layers.cluster.lastApplied}
+            />
+          </LayerGroup>
+        )}
+        {layers?.arcAgent && (
+          <LayerGroup label="Arc Agent">
+            <LayerRow
+              title="connectedmachine agent"
+              subtitle={layers.arcAgent.channel ? `channel: ${layers.arcAgent.channel}` : undefined}
+              current={layers.arcAgent.currentVersion}
+              target={layers.arcAgent.targetVersion}
+              drift={layers.arcAgent.drift}
+              health={layers.arcAgent.health}
+              lastApplied={layers.arcAgent.lastApplied}
+            />
+          </LayerGroup>
+        )}
+        {node && (
+          <LayerGroup label="Node (read-only)">
+            <div className="px-2 py-1.5 text-[12px]">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-fg">{node.os}</span>
+                {node.kernel && (
+                  <span className="font-mono text-[11px] text-fg-muted">{node.kernel}</span>
+                )}
+              </div>
+              {node.lastPatched && (
+                <div className="mt-0.5 text-[11px] text-fg-subtle">
+                  Last patched {formatRelative(node.lastPatched)}
+                </div>
+              )}
+              <p className="mt-1 text-[11px] text-fg-subtle">
+                Underlying VM / OS is customer-owned. Launchpad surfaces it as context only.
+              </p>
+            </div>
+          </LayerGroup>
+        )}
+      </div>
+    </DetailSection>
+  );
+}
+
+function LayerGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-sm border border-border-subtle bg-bg-subtle/40">
+      <div className="border-b border-border-subtle px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
+        {label}
+      </div>
+      <div className="divide-y divide-border-subtle">{children}</div>
+    </div>
+  );
+}
+
+function LayerRow({
+  title,
+  subtitle,
+  current,
+  target,
+  drift,
+  health,
+  lastApplied,
+}: {
+  title: string;
+  subtitle?: string;
+  current: string;
+  target: string;
+  drift: "none" | "behind" | "ahead" | "unknown";
+  health: "healthy" | "degraded" | "unhealthy";
+  lastApplied?: string;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-2 px-2 py-1.5 text-[12px]">
+      <div className="min-w-0">
+        <div className="flex items-center gap-1.5">
+          <HealthDot status={health} />
+          <span className="truncate font-medium text-fg">{title}</span>
+        </div>
+        {subtitle && <div className="text-[11px] text-fg-subtle">{subtitle}</div>}
+        {lastApplied && (
+          <div className="text-[11px] text-fg-subtle">applied {formatRelative(lastApplied)}</div>
+        )}
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-0.5">
+        <span className="font-mono text-[11px] text-fg-muted">{current}</span>
+        {drift === "behind" && (
+          <span className="rounded-sm border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning-fg">
+            → {target}
+          </span>
+        )}
+        {drift === "ahead" && (
+          <span className="rounded-sm border border-accent/30 bg-accent-subtle px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
+            ahead
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 
