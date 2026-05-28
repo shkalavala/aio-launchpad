@@ -298,10 +298,10 @@ function StepSource({
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <SourceCard
-            icon={<Github className="h-4 w-4" />}
+            icon={<GitBranch className="h-4 w-4" />}
             title="Existing fleet repo"
-            body="You already have a Scale Kit fork (or a repo with compatible structure)."
-            authTag="GitHub auth"
+            body="You already have a Scale Kit fork (or a repo with compatible structure) on GitHub or Azure DevOps."
+            authTag="Git auth"
             authTone="accent"
             onClick={() => onPickSource("existing-fork")}
           />
