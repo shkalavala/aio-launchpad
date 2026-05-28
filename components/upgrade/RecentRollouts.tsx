@@ -24,7 +24,8 @@ export function RecentRollouts() {
   const manageInfra = useAppStore((s) => s.manageInfra);
   const INFRA_KINDS: ReadonlySet<RolloutKind> = new Set<RolloutKind>([
     "aksee-upgrade",
-    "arc-agent-upgrade",
+    "arc-server-agent-upgrade",
+    "arc-k8s-agent-upgrade",
     "helm",
     "script",
   ]);
@@ -108,8 +109,10 @@ function describeTarget(r: RolloutRecord): string {
       return r.resourceLabel ?? "AIO resource re-apply";
     case "aksee-upgrade":
       return `AKS-EE → ${r.infraTargetVersion ?? "target"}`;
-    case "arc-agent-upgrade":
-      return `Arc agent → ${r.infraTargetVersion ?? "target"}`;
+    case "arc-server-agent-upgrade":
+      return `Arc-server agent → ${r.infraTargetVersion ?? "target"}`;
+    case "arc-k8s-agent-upgrade":
+      return `Arc-K8s agent → ${r.infraTargetVersion ?? "target"}`;
     case "helm":
       return r.helmLabel ?? "Helm chart";
     case "script":
@@ -124,7 +127,8 @@ const KIND_LABEL: Record<RolloutKind, string> = {
   arm: "aio module",
   resource: "aio resource",
   "aksee-upgrade": "aks-ee",
-  "arc-agent-upgrade": "arc agent",
+  "arc-server-agent-upgrade": "arc-server",
+  "arc-k8s-agent-upgrade": "arc-k8s",
   helm: "app",
   script: "script",
 };

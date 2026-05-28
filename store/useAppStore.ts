@@ -153,7 +153,8 @@ interface AppState {
    * When true, Launchpad exposes the vertical layers below AIO on the
    * existing surfaces — cluster (e.g. AKS-EE) and Arc-for-servers agent
    * become first-class on layered sites, and new rollout kinds
-   * (aksee-upgrade, arc-agent-upgrade, helm, script) are available.
+   * (aksee-upgrade, arc-server-agent-upgrade, arc-k8s-agent-upgrade, helm,
+   * script) are available.
    * Node / OS / hardware remains read-only context regardless of the
    * toggle. Default `false` — today's AIO-only experience is unchanged.
    * Backwards-compatible: sites without `layers` and releases without

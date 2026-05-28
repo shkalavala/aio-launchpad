@@ -23,13 +23,18 @@ import type { AioReleaseId } from "@/lib/types";
  * extension note at private/Olympus/olympus-extension-model.md §3-§5):
  * - `aksee-upgrade`     — upgrade the AKS-EE cluster via the three-cmdlet
  *                         PowerShell sequence over Arc Run Command.
- * - `arc-agent-upgrade` — upgrade the Arc-for-servers connectedmachine agent.
+ * - `arc-server-agent-upgrade` — upgrade the Arc-for-servers (connectedmachine)
+ *                         agent on the underlying host VMs. Optional layer
+ *                         — only sites with `layers.arcServerAgent` are
+ *                         eligible.
+ * - `arc-k8s-agent-upgrade` — upgrade the Arc-for-Kubernetes agent on the
+ *                         cluster. Mandatory layer for any AIO-bearing site.
  * - `helm`              — install / upgrade a custom workload helm chart
  *                         via the Arc Kubernetes proxy.
  * - `script`            — generic Arc Run Command script step (the
  *                         transport beneath aksee-upgrade /
- *                         arc-agent-upgrade), exposed as its own kind for
- *                         ad-hoc operator scripts.
+ *                         arc-server-agent-upgrade), exposed as its own kind
+ *                         for ad-hoc operator scripts.
  */
 export type RolloutKind =
   | "release"
@@ -38,7 +43,8 @@ export type RolloutKind =
   | "arm"
   | "resource"
   | "aksee-upgrade"
-  | "arc-agent-upgrade"
+  | "arc-server-agent-upgrade"
+  | "arc-k8s-agent-upgrade"
   | "helm"
   | "script";
 export type RolloutOutcome = "succeeded" | "failed" | "cancelled";
@@ -56,7 +62,8 @@ export interface RolloutRecord {
   resourceLabel?: string;
   /** Set when kind === "helm". Short label like "edge-control 3.2.0". */
   helmLabel?: string;
-  /** Set when kind === "aksee-upgrade" or "arc-agent-upgrade". Target version. */
+  /** Set for the three node/cluster version-target kinds (aksee-upgrade,
+   *  arc-server-agent-upgrade, arc-k8s-agent-upgrade). Target version. */
   infraTargetVersion?: string;
   /** Set when kind === "script". Short label for the script step. */
   scriptLabel?: string;

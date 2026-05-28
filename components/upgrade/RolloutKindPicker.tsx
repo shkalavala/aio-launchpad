@@ -75,7 +75,7 @@ export function RolloutKindPicker({ locked }: Props) {
   ];
 
   // Infra & workloads kinds — visible only when manageInfra=true. These run
-  // over the Arc transport: aksee-upgrade / arc-agent-upgrade use Arc Run
+  // over the Arc transport: aksee-upgrade and arc-*-agent-upgrade use Arc Run
   // Command to drive PowerShell on the node; helm uses the Arc Kubernetes
   // proxy. `script` is the generic Arc Run Command step exposed for ad-hoc
   // operator scripts. See private/Olympus/olympus-extension-model.md §4.
@@ -87,10 +87,16 @@ export function RolloutKindPicker({ locked }: Props) {
       hint: "Stage + apply an AKS-EE cluster upgrade over Arc Run Command (three-cmdlet sequence)",
     },
     {
-      id: "arc-agent-upgrade",
-      label: "Arc-agent upgrade",
+      id: "arc-server-agent-upgrade",
+      label: "Arc-server agent",
       icon: Server,
-      hint: "Upgrade the Arc-for-servers connectedmachine agent on the underlying VMs",
+      hint: "Upgrade the Arc-for-servers (connectedmachine) agent on host VMs — optional layer",
+    },
+    {
+      id: "arc-k8s-agent-upgrade",
+      label: "Arc-K8s agent",
+      icon: Cpu,
+      hint: "Upgrade the Arc-for-Kubernetes agent on the cluster — mandatory layer (AIO prereq)",
     },
     {
       id: "helm",
@@ -284,11 +290,21 @@ export function RolloutKindPicker({ locked }: Props) {
             </span>
           </PayloadRow>
         )}
-        {kind === "arc-agent-upgrade" && (
+        {kind === "arc-server-agent-upgrade" && (
           <PayloadRow label="Arc-server agent target">
             <span className="font-mono text-[12px] text-fg">1.45.01781</span>
             <span className="text-[11px] text-fg-subtle">
-              Upgrades the connectedmachine agent on the underlying VMs.
+              Upgrades the connectedmachine agent on the underlying VMs. Optional layer —
+              only sites whose host is Arc-for-servers connected are eligible.
+            </span>
+          </PayloadRow>
+        )}
+        {kind === "arc-k8s-agent-upgrade" && (
+          <PayloadRow label="Arc-K8s agent target">
+            <span className="font-mono text-[12px] text-fg">1.21.6</span>
+            <span className="text-[11px] text-fg-subtle">
+              Upgrades the Arc-for-Kubernetes agent on the cluster. Every AIO-bearing site
+              has this layer (hard prereq).
             </span>
           </PayloadRow>
         )}
