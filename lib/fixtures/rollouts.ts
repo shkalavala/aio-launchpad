@@ -9,7 +9,38 @@
 
 import type { AioReleaseId } from "@/lib/types";
 
-export type RolloutKind = "release" | "install" | "app" | "arm" | "resource";
+/**
+ * Kinds of changes the operator can roll across the fleet.
+ *
+ * AIO-scope kinds (always available):
+ * - `release`  — in-place AIO release upgrade.
+ * - `install`  — first-time AIO install on a pending-install site.
+ * - `app`      — deploy / update a sample app helm chart (today's path).
+ * - `arm`      — apply a Bicep/ARM module change to AIO resources.
+ * - `resource` — re-apply specific AIO resources from git state.
+ *
+ * Infra-scope kinds (visible only when `manageInfra` is on — see the
+ * extension note at private/Olympus/olympus-extension-model.md §3-§5):
+ * - `aksee-upgrade`     — upgrade the AKS-EE cluster via the three-cmdlet
+ *                         PowerShell sequence over Arc Run Command.
+ * - `arc-agent-upgrade` — upgrade the Arc-for-servers connectedmachine agent.
+ * - `helm`              — install / upgrade a custom workload helm chart
+ *                         via the Arc Kubernetes proxy.
+ * - `script`            — generic Arc Run Command script step (the
+ *                         transport beneath aksee-upgrade /
+ *                         arc-agent-upgrade), exposed as its own kind for
+ *                         ad-hoc operator scripts.
+ */
+export type RolloutKind =
+  | "release"
+  | "install"
+  | "app"
+  | "arm"
+  | "resource"
+  | "aksee-upgrade"
+  | "arc-agent-upgrade"
+  | "helm"
+  | "script";
 export type RolloutOutcome = "succeeded" | "failed" | "cancelled";
 
 export interface RolloutRecord {
@@ -23,6 +54,12 @@ export interface RolloutRecord {
   armName?: string;
   /** Set when kind === "resource". Short label like "3 dataflows". */
   resourceLabel?: string;
+  /** Set when kind === "helm". Short label like "edge-control 3.2.0". */
+  helmLabel?: string;
+  /** Set when kind === "aksee-upgrade" or "arc-agent-upgrade". Target version. */
+  infraTargetVersion?: string;
+  /** Set when kind === "script". Short label for the script step. */
+  scriptLabel?: string;
   siteCount: number;
   /** Human label for the ring strategy used (matches lib/rings.ts labels). */
   ringStrategy?: string;

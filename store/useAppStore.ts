@@ -11,7 +11,7 @@ import {
 } from "@/lib/upgrade";
 import { SAMPLE_APPS } from "@/lib/fixtures/sampleApps";
 import { ARM_MODULES } from "@/lib/fixtures/armModules";
-import type { RolloutRecord } from "@/lib/fixtures/rollouts";
+import type { RolloutKind, RolloutRecord } from "@/lib/fixtures/rollouts";
 import { RING_STRATEGIES } from "@/lib/fixtures/strategies";
 
 export const PERSIST_KEY = "aio-launchpad-store";
@@ -52,8 +52,8 @@ interface AppState {
    * machinery but carry different payload identifiers and skip release-specific
    * UI (BlastRadius, version diff).
    */
-  rolloutKind: "release" | "app" | "arm" | "install" | "resource";
-  setRolloutKind: (k: "release" | "app" | "arm" | "install" | "resource") => void;
+  rolloutKind: RolloutKind;
+  setRolloutKind: (k: RolloutKind) => void;
 
   /** Payload id when kind === "app" (lib/fixtures/sampleApps.ts). */
   rolloutAppId: string | null;
