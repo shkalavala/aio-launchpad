@@ -1,16 +1,18 @@
 "use client";
 
-// Connect screen — conceptual mock of the GitHub connection flow.
+// Connect screen — conceptual mock of the fleet-repo connection flow.
 //
 // IA: three-step stepper (Sign in -> Fleet repo -> Ready). Steps render
 // inline below the header; once configured, step 3 shows a summary panel
-// with a single Edit affordance. No real GitHub or Azure calls; everything
-// toggles the `fleetRepo` slice.
+// with a single Edit affordance. No real GitHub, ADO, or Azure calls;
+// everything toggles the `fleetRepo` slice.
 //
-// Differentiated from generic "connect-to-source" patterns by surfacing the
-// upstream-fork relationship as a lineage diagram (Scale Kit -> your fork
-// -> branch) and by treating Azure / ARM access as out-of-scope here (it
-// belongs next to where it's consumed, not on the connection landing).
+// Provider-aware: the user picks GitHub or Azure DevOps at step 1, and the
+// rest of the flow (auth method, repo picker, lift-from-Scale-Kit action)
+// adapts. Differentiated from generic "connect-to-source" patterns by
+// surfacing the upstream-fork relationship as a lineage diagram (Scale Kit
+// -> your repo -> branch) and by treating Azure / ARM access as out-of-scope
+// here (it belongs next to where it's consumed, not on the connection landing).
 
 import { useState } from "react";
 import Link from "next/link";
@@ -54,8 +56,8 @@ type SourceMode = "existing-fork" | "fresh-fork" | "local" | "demo";
 export default function ConnectPage() {
   const fleetRepo = useAppStore((s) => s.fleetRepo);
   const setFleetRepo = useAppStore((s) => s.setFleetRepo);
-  const connectGithub = useAppStore((s) => s.connectGithub);
-  const disconnectGithub = useAppStore((s) => s.disconnectGithub);
+  const connectFleetRepo = useAppStore((s) => s.connectFleetRepo);
+  const disconnectFleetRepo = useAppStore((s) => s.disconnectFleetRepo);
   const createFleetRepo = useAppStore((s) => s.createFleetRepo);
 
   const [flash, setFlash] = useState<"" | "saved" | "created">("");
@@ -131,7 +133,7 @@ export default function ConnectPage() {
             </p>
           </div>
           {currentStep === 3 && (
-            <Button variant="default" onClick={() => { disconnectGithub(); setSourceMode(null); }}>
+            <Button variant="default" onClick={() => { disconnectFleetRepo(); setSourceMode(null); }}>
               <Unlink className="h-3.5 w-3.5" />
               Disconnect
             </Button>
@@ -148,11 +150,11 @@ export default function ConnectPage() {
             pendingAuth={fleetRepo.pendingAuth}
             onPickAuth={(m) => setFleetRepo({ pendingAuth: m })}
             onConnect={(method) => {
-              // After GitHub connect, default mode-2 view based on source-mode.
+              // After fleet-repo connect, default mode-2 view based on source-mode.
               setFleetRepo({
                 mode: sourceMode === "fresh-fork" ? "create" : "select",
               });
-              connectGithub("contoso-ops", method);
+              connectFleetRepo("contoso-ops", method);
             }}
             localPath={localPath}
             onLocalPathChange={setLocalPath}
@@ -163,6 +165,7 @@ export default function ConnectPage() {
 
         {currentStep === 2 && (
           <StepFleetRepo
+            provider={fleetRepo.provider}
             account={fleetRepo.account ?? "you"}
             mode={fleetRepo.mode}
             onModeChange={(mode) => setFleetRepo({ mode })}
@@ -196,6 +199,7 @@ export default function ConnectPage() {
 
         {currentStep === 3 && (
           <StepReady
+            provider={fleetRepo.provider}
             account={fleetRepo.account ?? ""}
             auth={fleetRepo.auth}
             selectedRepo={fleetRepo.selectedRepo ?? ""}
@@ -350,7 +354,7 @@ function StepSource({
           onBack={onBackToSource}
           icon={<PlayCircle className="h-4 w-4 text-accent" />}
           title="Demo fleet"
-          subtitle="Built-in sample fleet. No GitHub calls, no Azure calls, no persistence beyond this browser session."
+          subtitle="Built-in sample fleet. No external API calls, no persistence beyond this browser session."
         />
         <ul className="mt-3 space-y-1 rounded-md border border-border bg-bg-subtle p-3 text-[12px] text-fg-muted">
           <li>• You can edit manifests in-memory; nothing leaves this browser.</li>
@@ -410,7 +414,7 @@ function StepSource({
   }
 
   return (
-    <StepGithubAuth
+    <StepAuth
       sourceMode={sourceMode}
       pendingAuth={pendingAuth}
       onPickAuth={onPickAuth}
@@ -482,7 +486,7 @@ function SourceCard({
 
 // ── Step 1b: Auth picker (provider-aware) ───────────────────────────────────
 
-function StepGithubAuth({
+function StepAuth({
   sourceMode,
   pendingAuth,
   onPickAuth,
@@ -778,6 +782,7 @@ function PasswordInput({ placeholder }: { placeholder: string }) {
 // ── Step 2: Fleet repository ─────────────────────────────────────────────────
 
 function StepFleetRepo(props: {
+  provider: import("@/store/useAppStore").GitProvider;
   account: string;
   mode: "select" | "create";
   onModeChange: (m: "select" | "create") => void;
@@ -800,6 +805,7 @@ function StepFleetRepo(props: {
   onCreate: () => void;
 }) {
   const {
+    provider,
     account,
     mode,
     onModeChange,
@@ -822,10 +828,16 @@ function StepFleetRepo(props: {
     onCreate,
   } = props;
 
+  const isGh = provider === "github";
+  // ADO identifier shape: "org/project/_git/repo". GitHub uses "owner/repo".
+  // For create-mode preview, the org/project isn't known yet, so we render
+  // the placeholder shape using whatever account string is currently set.
   const targetRepoName =
     mode === "select"
       ? selectedRepo ?? "—"
-      : `${account}/${newRepoName || "…"}`;
+      : isGh
+        ? `${account}/${newRepoName || "…"}`
+        : `${account}/_git/${newRepoName || "…"}`;
 
   return (
     <Panel>
@@ -841,6 +853,7 @@ function StepFleetRepo(props: {
         fork={targetRepoName}
         branch={branch}
         forkIsExisting={mode === "select"}
+        provider={provider}
       />
 
       <div className="mt-5 grid grid-cols-[180px_1fr] gap-5">
@@ -849,13 +862,13 @@ function StepFleetRepo(props: {
             active={mode === "select"}
             onClick={() => onModeChange("select")}
             label="Use existing"
-            sub="Pick from your repos"
+            sub={isGh ? "Pick from your GitHub repos" : "Pick from your ADO repos"}
           />
           <SideTab
             active={mode === "create"}
             onClick={() => onModeChange("create")}
-            label="Fork Scale Kit"
-            sub="New repo from upstream"
+            label={isGh ? "Fork Scale Kit" : "Import Scale Kit"}
+            sub={isGh ? "New repo from upstream" : "Import upstream into ADO project"}
           />
         </nav>
 
@@ -864,6 +877,7 @@ function StepFleetRepo(props: {
             <div className="flex flex-col gap-3">
               <Field label="Repository">
                 <RepoList
+                  provider={provider}
                   selected={selectedRepo}
                   onSelect={onSelectedRepoChange}
                 />
@@ -919,7 +933,7 @@ function StepFleetRepo(props: {
                   className="h-3.5 w-3.5 rounded border-border-strong"
                 />
                 <Lock className="h-3.5 w-3.5 text-fg-muted" />
-                Private repository
+                {isGh ? "Private repository" : "Private (project-scoped)"}
               </label>
               <Button
                 variant="default"
@@ -929,10 +943,12 @@ function StepFleetRepo(props: {
                 {flash === "created" ? (
                   <>
                     <CheckCircle2 className="h-3.5 w-3.5" />
-                    Fork created (mock)
+                    {isGh ? "Fork created (mock)" : "Imported (mock)"}
                   </>
-                ) : (
+                ) : isGh ? (
                   "Fork into my account"
+                ) : (
+                  "Import into ADO project"
                 )}
               </Button>
               <div className="mt-3 border-t border-border pt-3">
@@ -1003,15 +1019,18 @@ function SideTab({
 }
 
 function RepoList({
+  provider,
   selected,
   onSelect,
 }: {
+  provider: import("@/store/useAppStore").GitProvider;
   selected: string | null;
   onSelect: (full: string) => void;
 }) {
+  const repos = MOCK_EXISTING_REPOS.filter((r) => r.provider === provider);
   return (
     <div className="divide-y divide-border rounded-md border border-border bg-surface">
-      {MOCK_EXISTING_REPOS.map((r) => {
+      {repos.map((r) => {
         const isSel = selected === r.fullName;
         return (
           <button
@@ -1022,7 +1041,11 @@ function RepoList({
               isSel ? "bg-accent-subtle" : "hover:bg-bg-muted"
             }`}
           >
-            <Github className="h-3.5 w-3.5 shrink-0 text-fg-muted" />
+            {provider === "github" ? (
+              <Github className="h-3.5 w-3.5 shrink-0 text-fg-muted" />
+            ) : (
+              <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-fg-muted" />
+            )}
             <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-fg">
               {r.fullName}
             </span>
@@ -1034,7 +1057,7 @@ function RepoList({
             )}
             {r.isFork && (
               <span className="rounded-full bg-accent-subtle px-1.5 py-0.5 text-[10px] font-medium text-accent">
-                Scale Kit fork
+                Scale Kit {provider === "github" ? "fork" : "import"}
               </span>
             )}
             {isSel && <CheckCircle2 className="h-3.5 w-3.5 text-accent" />}
@@ -1087,6 +1110,7 @@ function PathFields({
 // ── Step 3: Ready summary ────────────────────────────────────────────────────
 
 function StepReady({
+  provider,
   account,
   auth,
   selectedRepo,
@@ -1095,6 +1119,7 @@ function StepReady({
   bicepPath,
   onEdit,
 }: {
+  provider: import("@/store/useAppStore").GitProvider;
   account: string;
   auth: AuthMethod | null;
   selectedRepo: string;
@@ -1120,13 +1145,15 @@ function StepReady({
       </div>
 
       <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-[12px] md:grid-cols-2">
-        <SummaryRow label="Account" value={`@${account}`} />
+        <SummaryRow label={provider === "github" ? "Account" : "Organization"} value={`@${account}`} />
         <SummaryRow label="Auth" value={authLabel(auth)} />
         <SummaryRow
           label="Repository"
           value={selectedRepo}
           mono
-          icon={<Github className="h-3 w-3 text-fg-muted" />}
+          icon={provider === "github"
+            ? <Github className="h-3 w-3 text-fg-muted" />
+            : <ShieldCheck className="h-3 w-3 text-fg-muted" />}
         />
         <SummaryRow
           label="Branch"
@@ -1201,12 +1228,19 @@ function LineageDiagram({
   fork,
   branch,
   forkIsExisting,
+  provider,
 }: {
   upstream: string;
   fork: string;
   branch: string;
   forkIsExisting: boolean;
+  provider: import("@/store/useAppStore").GitProvider;
 }) {
+  // Edge label on the upstream → fleet-repo arrow describes the *operation*
+  // that produced the fleet repo. GitHub's UI verb is "fork"; Azure DevOps
+  // uses "import" (its built-in "Import a repository" flow that takes any
+  // public Git URL).
+  const liftVerb = provider === "github" ? "fork" : "import";
   return (
     <div className="flex items-stretch gap-2 rounded-md border border-border bg-bg-subtle p-3">
       <LineageNode
@@ -1215,7 +1249,9 @@ function LineageDiagram({
         sub="Scale Kit"
         tone="muted"
       />
-      <LineageArrow label={forkIsExisting ? "your fork" : "fork on save"} />
+      <LineageArrow
+        label={forkIsExisting ? `your ${liftVerb}` : `${liftVerb} on save`}
+      />
       <LineageNode
         label="Fleet repo"
         name={fork}

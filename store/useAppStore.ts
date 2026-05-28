@@ -150,15 +150,16 @@ interface AppState {
 
   // ── Fleet repo connection (conceptual mock) ─────────────────────────
   /**
-   * Mock state for the /connect/ screen. Mirrors DoEGit's Connect-GitHub
-   * flow: pick an existing fork of Scale Kit, or "fork & create" a new one.
-   * No real GitHub API calls — buttons just flip state so the IA and the
-   * user journey can be reviewed before any real integration is wired.
+   * Mock state for the /connect/ screen. Provider-aware: the user picks
+   * GitHub or Azure DevOps, then either selects an existing fleet repo or
+   * lifts Scale Kit into a new one (fork on GitHub, import on ADO). No real
+   * API calls — buttons just flip state so the IA can be reviewed before
+   * any real integration is wired.
    */
   fleetRepo: FleetRepoConfig;
   setFleetRepo: (patch: Partial<FleetRepoConfig>) => void;
-  connectGithub: (account: string, method: AuthMethod) => void;
-  disconnectGithub: () => void;
+  connectFleetRepo: (account: string, method: AuthMethod) => void;
+  disconnectFleetRepo: () => void;
   createFleetRepo: () => void;
 }
 
@@ -224,18 +225,27 @@ export const SCALE_KIT_UPSTREAM = "Azure-Samples/azure-iot-operations-scale-kit"
 
 /**
  * Mock list of existing repos that the connected account can choose from.
- * Stand-in for the real `GET /user/repos` response. Annotated so the UI can
- * mark which ones look like prior Scale Kit forks.
+ * Stand-in for the real `GET /user/repos` (GitHub) or
+ * `git/repositories?api-version=...` (ADO) response. Annotated so the UI
+ * can mark which ones look like prior Scale Kit forks. The `provider`
+ * field lets the picker filter by the currently selected provider.
  */
 export const MOCK_EXISTING_REPOS: Array<{
   fullName: string;
   isFork: boolean;
   private: boolean;
+  provider: GitProvider;
 }> = [
-  { fullName: "contoso-industries/aio-fleet-config", isFork: true, private: true },
-  { fullName: "contoso-industries/iot-ops-experiments", isFork: false, private: true },
-  { fullName: "contoso-industries/factory-dataflow-sandbox", isFork: false, private: true },
-  { fullName: "Azure-Samples/azure-iot-operations-scale-kit", isFork: false, private: false },
+  { fullName: "contoso-industries/aio-fleet-config", isFork: true, private: true, provider: "github" },
+  { fullName: "contoso-industries/iot-ops-experiments", isFork: false, private: true, provider: "github" },
+  { fullName: "contoso-industries/factory-dataflow-sandbox", isFork: false, private: true, provider: "github" },
+  { fullName: "Azure-Samples/azure-iot-operations-scale-kit", isFork: false, private: false, provider: "github" },
+  // ADO identifiers follow `organization/project/_git/repo` (the URL path
+  // shape). Fixture covers both an imported Scale Kit and a couple of
+  // standalone repos so the picker has something to render on the ADO tab.
+  { fullName: "contoso/Edge-Platform/_git/aio-fleet-config", isFork: true, private: true, provider: "ado" },
+  { fullName: "contoso/Edge-Platform/_git/iot-ops-experiments", isFork: false, private: true, provider: "ado" },
+  { fullName: "contoso/Industrial-Ops/_git/factory-dataflow-sandbox", isFork: false, private: true, provider: "ado" },
 ];
 
 export const useAppStore = create<AppState>()(persist((set, get) => ({
@@ -451,7 +461,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   },
   setFleetRepo: (patch) =>
     set((s) => ({ fleetRepo: { ...s.fleetRepo, ...patch } })),
-  connectGithub: (account, method) =>
+  connectFleetRepo: (account, method) =>
     set((s) => ({
       fleetRepo: {
         ...s.fleetRepo,
@@ -461,7 +471,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
         pendingAuth: null,
       },
     })),
-  disconnectGithub: () =>
+  disconnectFleetRepo: () =>
     set((s) => ({
       fleetRepo: {
         ...s.fleetRepo,
