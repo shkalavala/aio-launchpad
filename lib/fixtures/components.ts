@@ -97,17 +97,18 @@ const BASE: Record<AioReleaseId, ComponentVersion[]> = {
 
 export const COMPONENTS_BY_RELEASE: Record<AioReleaseId, ComponentVersion[]> = BASE;
 
-// A small set of per-site overrides modelling realistic drift: one
-// component running a different version than the release pin would imply.
-// Used by the drawer to flag a site as "release pin says 2604 but
-// dataflow is still on 0.6.3" — the kind of thing only a per-site
-// drill-down can surface.
-export const COMPONENT_DRIFT_BY_SITE: Record<string, Partial<Record<ComponentKind, string>>> = {
-  "stockholm-bar-prod": {
-    // Stuck on the previous release's dataflow despite the release pin.
-    dataflow: "0.6.3",
-  },
-};
+// Per-component version skew inside an AIO release bundle is NOT reachable on
+// the paved path: a release (2604, 2605, ...) ships a fixed, co-versioned set
+// of components, and the standard install/upgrade applies them as a unit. The
+// only way a single component ends up on a different version than its release
+// promises is if the cluster was taken off the paved path — e.g. a manual
+// `helm upgrade`/`kubectl` mutation, or a partially-failed upgrade left mid-way.
+//
+// We deliberately seed NO drift here, so the default demo never shows a
+// scenario that can't happen for a customer following standard AIO paths. The
+// mechanism is retained (and the drawer copy is framed as "off paved path")
+// so the honest representation exists if we ever choose to model that corner.
+export const COMPONENT_DRIFT_BY_SITE: Record<string, Partial<Record<ComponentKind, string>>> = {};
 
 export function componentsForSite(
   siteName: string,
