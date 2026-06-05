@@ -13,28 +13,19 @@ import { EmptyFleetCard } from "@/components/shell/EmptyFleetCard";
 import { SiteDetailDrawer } from "@/components/fleet/SiteDetailDrawer";
 import { ChevronRight } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
-import { PENDING_INSTALL_FLEET } from "@/lib/fixtures/sites";
 import type { FleetSite } from "@/lib/types";
 
 export default function FleetPage() {
   const pendingSites = useAppStore((s) => s.pendingSites);
-  const installedPendingSiteNames = useAppStore((s) => s.installedPendingSiteNames);
   const versionOverrides = useAppStore((s) => s.versionOverrides);
-  const demoMode = useAppStore((s) => s.demoMode);
   const baseFleet = useFleet();
-  // Declared in the manifest but no AIO yet — surfaced here so the Fleet view
-  // is the single catalog. Filter out any that this session has already
-  // promoted via a completed install rollout (those are merged via useFleet).
-  // Only shown when demo data is on; with demo off, a fresh tenant must stay
-  // empty except for sites the user explicitly created.
-  const declaredPending = useMemo(() => {
-    if (!demoMode) return [];
-    const installed = new Set(installedPendingSiteNames);
-    return PENDING_INSTALL_FLEET.filter((fs) => !installed.has(fs.site.name));
-  }, [demoMode, installedPendingSiteNames]);
+  // Fleet shows installed AIO instances plus any sites the user has created
+  // this session. Pre-declared sites that don't have AIO yet are not surfaced
+  // here — they live in the Rollout "install" flow so the Fleet view stays a
+  // clean inventory of real instances.
   const fleet = useMemo(
-    () => [...baseFleet, ...pendingSites, ...declaredPending],
-    [baseFleet, pendingSites, declaredPending],
+    () => [...baseFleet, ...pendingSites],
+    [baseFleet, pendingSites],
   );
   const isEmpty = fleet.length === 0;
 
@@ -45,7 +36,6 @@ export default function FleetPage() {
   const onCurrent = installed.filter(
     (f) => (versionOverrides[f.site.name] ?? f.runtime.resolvedRelease) === "2605",
   ).length;
-  const pendingInstall = declaredPending.length;
 
   return (
     <div className="flex h-full">
@@ -67,8 +57,7 @@ export default function FleetPage() {
             <div>
               <h1 className="text-[20px] font-semibold leading-tight text-fg">Fleet</h1>
               <p className="text-[12px] text-fg-muted">
-                Every site you own — installed AIO instances plus sites declared in the manifest
-                that don&apos;t have AIO yet. Add new sites and roll out installs from here.
+                Every AIO instance you own. Add new sites and roll out installs from here.
               </p>
             </div>
             <div className="flex gap-6 text-[12px]">
@@ -76,9 +65,6 @@ export default function FleetPage() {
               <Stat label="Factories (prod)" value={factories} />
               <Stat label="Shared dev envs" value={sharedDevs} />
               <Stat label="On 2605" value={`${onCurrent}/${totalSites}`} />
-              {pendingInstall > 0 && (
-                <Stat label="Pending install" value={pendingInstall} />
-              )}
             </div>
           </div>
         </div>

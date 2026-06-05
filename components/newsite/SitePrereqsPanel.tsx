@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronDown, CircleCheck, Plus, ExternalLink } from "lucide-react";
+import { ChevronDown, CircleCheck, Plus, ExternalLink, Code } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -10,10 +10,11 @@ import { cn } from "@/lib/utils";
  * Each Day-1 prereq for a brand-new site is one of two things:
  *   - "Use existing"   — Central IT (or a prior tenant project) already
  *                        owns this resource; paste the name / resource ID.
- *   - "Create as part of deploy" — Launchpad authors the parameters block
- *                        and the bicep/az command set so the operator can
- *                        kick it off here. (UI stub — the prototype does
- *                        not yet wire to a real deployment workflow.)
+ *   - "Created by the deploy" — the deploy provisions this resource from the
+ *                        parameters Launchpad authors; no manual step. The
+ *                        underlying command stays available behind a
+ *                        "view as code" escape hatch. (UI stub — the prototype
+ *                        does not yet wire to a real deployment workflow.)
  *
  * This panel is *not* the tenant-wide /preflight gate (which is one-time,
  * tenant-scoped). It's the per-site pick of where each underlying Azure
@@ -136,7 +137,7 @@ export function SitePrereqsPanel({ value, onChange, locked }: Props) {
         <div className="flex items-baseline gap-2">
           <h2 className="text-[14px] font-semibold text-fg">Site prerequisites</h2>
           <span className="text-[11px] text-fg-muted">
-            For each Azure dependency, pick existing or create as part of deploy.
+            For each Azure dependency, use existing or let the deploy create it.
           </span>
         </div>
         <div className="flex items-center gap-3 text-[11px] text-fg-muted">
@@ -201,20 +202,19 @@ export function SitePrereqsPanel({ value, onChange, locked }: Props) {
                 </PrereqOption>
 
                 {!def.pickOnly && (
-                  <PrereqOption
-                    active={choice.source === "create"}
-                    title="Create as part of deploy"
-                    subtitle="Launchpad authors the parameters block. You run the az / Bicep step."
-                    icon={<Plus className="h-3.5 w-3.5" />}
-                    onSelect={() => set(def.id, { source: "create" })}
-                    locked={locked}
-                  >
-                    {def.createCmd && (
-                      <pre className="mt-1.5 overflow-x-auto whitespace-pre-wrap break-all rounded-sm border border-border bg-bg-subtle p-1.5 font-mono text-[10px] text-fg-muted">
-                        {def.createCmd}
-                      </pre>
+                  <div className="space-y-1.5">
+                    <PrereqOption
+                      active={choice.source === "create"}
+                      title="Created by the deploy"
+                      subtitle="The deploy provisions this for you from the parameters Launchpad authors — no manual step."
+                      icon={<Plus className="h-3.5 w-3.5" />}
+                      onSelect={() => set(def.id, { source: "create" })}
+                      locked={locked}
+                    />
+                    {def.createCmd && choice.source === "create" && (
+                      <ViewAsCode cmd={def.createCmd} />
                     )}
-                  </PrereqOption>
+                  </div>
                 )}
               </div>
             );
@@ -261,5 +261,26 @@ function PrereqOption({
       <p className="text-[10px] leading-snug text-fg-subtle">{subtitle}</p>
       {children}
     </button>
+  );
+}
+
+function ViewAsCode({ cmd }: { cmd: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="pl-0.5">
+      <button
+        type="button"
+        onClick={() => setShow((s) => !s)}
+        className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-fg-muted transition-colors hover:text-accent"
+      >
+        <Code className="h-2.5 w-2.5" />
+        {show ? "Hide code" : "View as code"}
+      </button>
+      {show && (
+        <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-all rounded-sm border border-border bg-bg-subtle p-1.5 font-mono text-[10px] text-fg-muted">
+          {cmd}
+        </pre>
+      )}
+    </div>
   );
 }

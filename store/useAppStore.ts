@@ -16,6 +16,13 @@ import { RING_STRATEGIES } from "@/lib/fixtures/strategies";
 
 export const PERSIST_KEY = "aio-launchpad-store";
 
+/**
+ * Viewing lens for the app shell. `"focused"` curates the nav to the core
+ * AIO fleet motion; `"full"` exposes every built surface. See the
+ * `scopeProfile` field on AppState for the full contract.
+ */
+export type ScopeProfile = "focused" | "full";
+
 // ── Internal tick driver ─────────────────────────────────────────────────────
 // Module-scoped so it survives re-renders but not a hard reload. We don't
 // persist rollout state across reloads on purpose — demo-safe reset.
@@ -164,6 +171,22 @@ interface AppState {
   setManageInfra: (v: boolean) => void;
   toggleManageInfra: () => void;
 
+  // ── Scope profile ───────────────────────────────────────────────────
+  /**
+   * Which lens the operator is viewing Launchpad through. `"focused"` curates
+   * the navigation and chrome down to the surfaces that matter for the core
+   * AIO fleet motion (fleet, solutions, rollout, secrets, source, and the
+   * /focus landing). `"full"` exposes every built surface — pre-flight,
+   * releases, resources, connect — plus the infra-scope toggle and the
+   * Olympus-style full-stack rollout kinds.
+   *
+   * Nothing is deleted in either profile; "focused" only hides surfaces from
+   * the nav. Selecting "focused" also forces `manageInfra` off, since the
+   * vertical infra layers are a full-profile concern. Default `"focused"`.
+   */
+  scopeProfile: ScopeProfile;
+  setScopeProfile: (p: ScopeProfile) => void;
+
   // ── Fleet repo connection (conceptual mock) ─────────────────────────
   /**
    * Mock state for the /connect/ screen. Provider-aware: the user picks
@@ -187,7 +210,6 @@ interface AppState {
  * etc.) means a new union member + per-provider auth set.
  */
 export type GitProvider = "github" | "ado";
-
 /**
  * Authentication mechanism for the fleet-repo connection. Per-provider
  * because the practical flows differ: GitHub uses device flow as the
@@ -233,11 +255,10 @@ export interface FleetRepoConfig {
 }
 
 /**
- * Upstream Scale Kit repo used as the fork source. Placeholder — the real
- * upstream is private/internal during preview; will be wired when Scale Kit
- * v1 ships publicly. Surfaced in the UI as "Fork source".
+ * Upstream Scale Kit repo used as the fork source. This is the real public
+ * repo (Azure org, MIT-licensed). Surfaced in the UI as "Fork source".
  */
-export const SCALE_KIT_UPSTREAM = "Azure-Samples/azure-iot-operations-scale-kit";
+export const SCALE_KIT_UPSTREAM = "Azure/digital-ops-scale-kit";
 
 /**
  * Mock list of existing repos that the connected account can choose from.
@@ -255,7 +276,7 @@ export const MOCK_EXISTING_REPOS: Array<{
   { fullName: "contoso-industries/aio-fleet-config", isFork: true, private: true, provider: "github" },
   { fullName: "contoso-industries/iot-ops-experiments", isFork: false, private: true, provider: "github" },
   { fullName: "contoso-industries/factory-dataflow-sandbox", isFork: false, private: true, provider: "github" },
-  { fullName: "Azure-Samples/azure-iot-operations-scale-kit", isFork: false, private: false, provider: "github" },
+  { fullName: "Azure/digital-ops-scale-kit", isFork: false, private: false, provider: "github" },
   // ADO identifiers follow `organization/project/_git/repo` (the URL path
   // shape). Fixture covers both an imported Scale Kit and a couple of
   // standalone repos so the picker has something to render on the ADO tab.
@@ -463,6 +484,15 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   setManageInfra: (v) => set({ manageInfra: v }),
   toggleManageInfra: () => set((s) => ({ manageInfra: !s.manageInfra })),
 
+  // ── Scope-profile slice ───────────────────────────────────────────
+  scopeProfile: "focused",
+  setScopeProfile: (p) =>
+    set((s) => ({
+      scopeProfile: p,
+      // Infra layers are a full-profile concern; collapse them when focusing.
+      manageInfra: p === "focused" ? false : s.manageInfra,
+    })),
+
   // ── Fleet-repo slice (conceptual) ─────────────────────────────────
   fleetRepo: {
     connected: false,
@@ -546,6 +576,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
     sessionRollouts: s.sessionRollouts,
     fleetRepo: s.fleetRepo,
     manageInfra: s.manageInfra,
+    scopeProfile: s.scopeProfile,
   }),
   // Merge persisted state with current defaults so newly-added fields
   // (e.g. bicepPath) are populated on existing installs.
