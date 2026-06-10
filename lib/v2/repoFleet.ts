@@ -157,6 +157,13 @@ export interface RepoFleetResult {
   fleet: FleetSite[];
   /** Templates found in the repo (kind: SiteTemplate). */
   templates: SiteTemplate[];
+  /**
+   * Map of template name -> path relative to the sites/ dir (e.g.
+   * "shared/germany.yaml", "base-site.yaml"). This is exactly the value a new
+   * site's `inherits:` field needs, so the authoring wizard can reference a
+   * shared default correctly.
+   */
+  templatePaths: Record<string, string>;
   /** Repo-relative paths that failed to parse, for surfacing in the UI. */
   skipped: string[];
 }
@@ -175,6 +182,7 @@ export async function loadRepoFleet(conn: RepoConnection): Promise<RepoFleetResu
 
   const sites: Site[] = [];
   const templates: SiteTemplate[] = [];
+  const templatePaths: Record<string, string> = {};
   const skipped: string[] = [];
 
   // Fetch blobs in parallel; the client caches by ETag so reloads stay cheap.
@@ -206,6 +214,8 @@ export async function loadRepoFleet(conn: RepoConnection): Promise<RepoFleetResu
     }
     if (doc.kind === "SiteTemplate") {
       templates.push(doc as SiteTemplate);
+      // Path relative to the sites/ dir, e.g. "shared/germany.yaml".
+      templatePaths[doc.name] = path.slice(sitesPrefix.length + 1);
     } else if (doc.kind === "Site") {
       // Tolerate subscription-scoped sites with no resourceGroup.
       const site = doc as Site;
@@ -221,5 +231,5 @@ export async function loadRepoFleet(conn: RepoConnection): Promise<RepoFleetResu
     .map((s) => toFleetSite(s, templatesByName))
     .sort((a, b) => a.site.name.localeCompare(b.site.name));
 
-  return { fleet, templates, skipped };
+  return { fleet, templates, templatePaths, skipped };
 }

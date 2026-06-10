@@ -1,22 +1,27 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Building2, MapPin, LayoutGrid, ListTree } from "lucide-react";
+import { Building2, MapPin, LayoutGrid, ListTree, Plus } from "lucide-react";
 import { PageHeader } from "@/components/v2/ui/PageHeader";
 import { useV2Fleet } from "@/lib/useV2Fleet";
 import { groupHierarchy, regionLabel } from "@/lib/v2/format";
 import { SiteCard } from "@/components/v2/sites/SiteCard";
 import { SiteFilters } from "@/components/v2/sites/SiteFilters";
 import { InheritanceTree } from "@/components/v2/sites/InheritanceTree";
+import { AddSiteWizard } from "@/components/v2/sites/AddSiteWizard";
+import { Button } from "@/components/ui/Button";
+import { useIsRepoConnected } from "@/store/useRepoConnection";
 import { cn } from "@/lib/utils";
 
 type SitesView = "grouped" | "inheritance";
 
 export default function V2SitesPage() {
   const fleet = useV2Fleet();
+  const connected = useIsRepoConnected();
   const [activeRegion, setActiveRegion] = useState<string | null>(null);
   const [activeEnv, setActiveEnv] = useState<string | null>(null);
   const [view, setView] = useState<SitesView>("grouped");
+  const [addOpen, setAddOpen] = useState(false);
 
   const regions = useMemo(() => {
     const slugs = Array.from(new Set(fleet.map((fs) => fs.resolvedLocation)));
@@ -48,7 +53,16 @@ export default function V2SitesPage() {
       <PageHeader
         title="Sites"
         description="Your fleet by Enterprise, Region, and Site. Environment and cluster are shown per site."
+        actions={
+          connected ? (
+            <Button variant="primary" size="sm" onClick={() => setAddOpen(true)}>
+              <Plus className="h-3.5 w-3.5" />
+              Add site
+            </Button>
+          ) : undefined
+        }
       />
+      {addOpen && <AddSiteWizard onClose={() => setAddOpen(false)} />}
       <div className="space-y-6 px-6 py-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <SiteFilters

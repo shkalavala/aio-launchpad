@@ -26,6 +26,8 @@ interface RepoConnectionState {
   /** Live fleet loaded from the repo; null until a successful connect. */
   fleet: FleetSite[] | null;
   templates: SiteTemplate[];
+  /** template name -> inherits path relative to sites/ (e.g. "shared/germany.yaml"). */
+  templatePaths: Record<string, string>;
   /** Repo-relative paths that failed to parse on the last load. */
   skipped: string[];
 
@@ -45,6 +47,7 @@ export const useRepoConnection = create<RepoConnectionState>()(
       error: null,
       fleet: null,
       templates: [],
+      templatePaths: {},
       skipped: [],
 
       connect: async (conn) => {
@@ -55,7 +58,7 @@ export const useRepoConnection = create<RepoConnectionState>()(
         };
         set({ status: "loading", error: null, connection: normalized });
         try {
-          const { fleet, templates, skipped } = await loadRepoFleet(normalized);
+          const { fleet, templates, templatePaths, skipped } = await loadRepoFleet(normalized);
           if (fleet.length === 0) {
             set({
               status: "error",
@@ -64,7 +67,7 @@ export const useRepoConnection = create<RepoConnectionState>()(
             });
             return false;
           }
-          set({ status: "connected", fleet, templates, skipped, error: null });
+          set({ status: "connected", fleet, templates, templatePaths, skipped, error: null });
           return true;
         } catch (e) {
           set({
@@ -89,6 +92,7 @@ export const useRepoConnection = create<RepoConnectionState>()(
           error: null,
           fleet: null,
           templates: [],
+          templatePaths: {},
           skipped: [],
         }),
     }),

@@ -253,3 +253,25 @@ export function getGitHubWriter(): GitHubWriter | null {
   if (!cfg) return null;
   return new GitHubWriter(cfg.repo, cfg.auth);
 }
+
+/**
+ * Build a writer from a runtime "bring your own repo" connection (owner / repo
+ * / branch / token), bypassing the env-based activation entirely. Returns null
+ * when no token is present, since writes require Contents + Pull requests RW.
+ *
+ * This is the path the v2 authoring UI uses: the operator connects a fork with
+ * a write-scoped PAT (held in sessionStorage only), and we drive real
+ * branch -> commit -> PR against it.
+ */
+export function writerFromConnection(conn: {
+  owner: string;
+  repo: string;
+  branch: string;
+  token?: string;
+}): GitHubWriter | null {
+  if (!conn.token) return null;
+  return new GitHubWriter(
+    { owner: conn.owner, repo: conn.repo, branch: conn.branch },
+    { token: conn.token },
+  );
+}
