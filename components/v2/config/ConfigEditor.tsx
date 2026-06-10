@@ -66,7 +66,7 @@ export function ConfigEditor({ fs }: { fs: FleetSite }) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <Link
-          href={`/v2/sites/${siteName}`}
+          href={`/v2/sites/view/?site=${encodeURIComponent(siteName)}`}
           className="inline-flex items-center gap-1.5 text-[12px] text-fg-subtle hover:text-fg"
         >
           <ArrowLeft className="h-3.5 w-3.5" />

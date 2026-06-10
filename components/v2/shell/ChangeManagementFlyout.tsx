@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import {
-  GitBranch,
   GitCommitHorizontal,
   GitPullRequest,
   Inbox,
@@ -13,46 +12,18 @@ import {
 } from "lucide-react";
 import { useV2Store } from "@/store/useV2Store";
 import { shortSha } from "@/lib/git/fixtures";
-import { isWriteEnabled } from "@/lib/github/writeClient";
 import type { PendingChange, IncomingChange, DriftRecord } from "@/lib/git/model";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
+import { RepoConnectPanel } from "@/components/v2/shell/RepoConnectPanel";
 
 /** Full change-management body: repo, pending changes, incoming, drift. */
 export function ChangeManagementFlyout() {
-  const repo = useV2Store((s) => s.repo);
-  const writeLive = isWriteEnabled();
-
   return (
     <div className="max-h-[70vh] w-[420px] overflow-y-auto p-3">
       <SectionLabel>Repository</SectionLabel>
-      <div className="rounded-md border border-border bg-bg-subtle p-2.5 text-[12px]">
-        <div className="flex items-center justify-between">
-          <span className="text-fg-muted">
-            {repo.owner}/{repo.repo}
-          </span>
-          <span className="inline-flex items-center gap-1 font-medium text-fg">
-            <GitBranch className="h-3 w-3" />
-            {repo.branch}
-          </span>
-        </div>
-        <div className="mt-1.5 border-t border-border pt-1.5">
-          <div className="font-mono text-[11px] text-accent">{shortSha(repo.lastCommit.sha)}</div>
-          <div className="truncate text-fg">{repo.lastCommit.message}</div>
-          <div className="text-[11px] text-fg-subtle">by {repo.lastCommit.author}</div>
-        </div>
-        <div className="mt-1.5 flex items-center gap-1.5 border-t border-border pt-1.5">
-          <Badge tone={writeLive ? "success" : "neutral"} className="text-[10px]">
-            {writeLive ? "writes: live fork" : "writes: in-memory mock"}
-          </Badge>
-          {!writeLive && (
-            <span className="text-[10px] text-fg-subtle">
-              connect a fork + token to push real branches & PRs
-            </span>
-          )}
-        </div>
-      </div>
+      <RepoConnectPanel />
 
       <PendingSection />
       <IncomingSection />

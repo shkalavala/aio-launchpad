@@ -13,6 +13,12 @@ export interface RepoCoords {
   owner: string;
   repo: string;
   branch: string;
+  /**
+   * Optional fine-grained PAT. When present, requests are authenticated
+   * (lifts the 60 req/hr anon limit and unlocks private repos). Never logged
+   * or persisted to disk by this module; the caller owns its lifecycle.
+   */
+  token?: string;
 }
 
 export interface GitHubFile {
@@ -32,12 +38,13 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 
-async function ghGet<T>(url: string): Promise<T> {
+async function ghGet<T>(url: string, token?: string): Promise<T> {
   const hit = cache.get(url);
   const res = await fetch(url, {
     headers: {
       Accept: "application/vnd.github+json",
       "X-GitHub-Api-Version": "2022-11-28",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(hit ? { "If-None-Match": hit.etag } : {}),
     },
   });
@@ -63,14 +70,16 @@ export async function listTree(
   // Resolve the ref to a tree SHA first so we can use the recursive trees API.
   const ref = await ghGet<{ object: { sha: string } }>(
     `${API}/repos/${repo.owner}/${repo.repo}/git/refs/heads/${repo.branch}`,
+    repo.token,
   );
   const commit = await ghGet<{ tree: { sha: string } }>(
     `${API}/repos/${repo.owner}/${repo.repo}/git/commits/${ref.object.sha}`,
+    repo.token,
   );
   const tree = await ghGet<{
     truncated: boolean;
     tree: Array<{ path: string; type: string; sha: string; size?: number }>;
-  }>(`${API}/repos/${repo.owner}/${repo.repo}/git/trees/${commit.tree.sha}?recursive=1`);
+  }>(`${API}/repos/${repo.owner}/${repo.repo}/git/trees/${commit.tree.sha}?recursive=1`, repo.token);
   if (tree.truncated) {
     // Acceptable for now — our demo trees are well under 100k entries.
     console.warn("[github] tree truncated; some files may be missing");
@@ -84,6 +93,7 @@ export async function listTree(
 export async function fetchBlob(repo: RepoCoords, sha: string): Promise<string> {
   const blob = await ghGet<{ content: string; encoding: string }>(
     `${API}/repos/${repo.owner}/${repo.repo}/git/blobs/${sha}`,
+    repo.token,
   );
   if (blob.encoding !== "base64") {
     throw new Error(`Unexpected blob encoding: ${blob.encoding}`);

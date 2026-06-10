@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { Cloud, ArrowLeft } from "lucide-react";
 import { V2Nav } from "./V2Nav";
 import { ChangeManagementPanel } from "./ChangeManagementPanel";
 import { BasicAdvancedToggle } from "./BasicAdvancedToggle";
+import { useRepoConnection } from "@/store/useRepoConnection";
 
 /**
  * Full-screen shell for the v2 experiment. Renders its own header (logo, lens
@@ -13,6 +15,16 @@ import { BasicAdvancedToggle } from "./BasicAdvancedToggle";
  * the only chrome shown here.
  */
 export function V2Shell({ children }: { children: React.ReactNode }) {
+  // Same-tab reload: the repo connection coords rehydrate from sessionStorage
+  // but the derived fleet does not. Re-read the repo once on mount so any v2
+  // page renders the live fleet without needing to open the flyout first.
+  const connection = useRepoConnection((s) => s.connection);
+  const status = useRepoConnection((s) => s.status);
+  const refresh = useRepoConnection((s) => s.refresh);
+  useEffect(() => {
+    if (connection && status === "idle") void refresh();
+  }, [connection, status, refresh]);
+
   return (
     <div className="flex h-full flex-col">
       <header className="flex h-12 shrink-0 items-center gap-4 border-b border-border bg-surface px-4">

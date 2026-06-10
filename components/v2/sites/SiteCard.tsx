@@ -22,7 +22,7 @@ export function SiteCard({ fs }: { fs: FleetSite }) {
 
   return (
     <Link
-      href={`/v2/sites/${fs.site.name}`}
+      href={`/v2/sites/view/?site=${encodeURIComponent(fs.site.name)}`}
       className="group flex flex-col gap-2.5 rounded-lg border border-border bg-surface p-3.5 transition-colors hover:border-accent/50 hover:shadow-depth8"
     >
       <div className="flex items-start justify-between gap-2">

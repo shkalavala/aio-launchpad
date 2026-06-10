@@ -3,14 +3,17 @@
 import { useMemo } from "react";
 import { FLEET } from "@/lib/fixtures/sites";
 import type { FleetSite } from "@/lib/types";
+import { useRepoConnection } from "@/store/useRepoConnection";
 
 /**
- * Fleet data source for the v2 experiment. Unlike the classic `useFleet`, this
- * always returns the Contoso demo fleet regardless of the classic demo toggle —
- * the experiment is self-contained and should always have data to show.
+ * Fleet data source for the v2 experiment. Source-switches between two backings:
+ *   - a connected real Scale Kit repo (bring-your-own-repo mode), or
+ *   - the self-contained Contoso demo fleet when no repo is connected.
+ * Either way the experiment always has data to show.
  */
 export function useV2Fleet(): FleetSite[] {
-  return useMemo(() => FLEET, []);
+  const liveFleet = useRepoConnection((s) => (s.status === "connected" ? s.fleet : null));
+  return useMemo(() => liveFleet ?? FLEET, [liveFleet]);
 }
 
 /** Look up a single resolved site by its leaf name. */
