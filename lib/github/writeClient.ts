@@ -26,11 +26,16 @@ export interface WriteAuth {
   token: string;
 }
 
-/** A single file to write in a commit: full replacement content. */
+/**
+ * A single file change in a commit. By default this is a full-content write;
+ * set `delete: true` to remove the path from the tree instead.
+ */
 export interface FileChange {
   path: string;
-  /** Full UTF-8 file content (YAML). Encoded to base64 on the wire. */
-  content: string;
+  /** Full UTF-8 file content (YAML). Encoded to base64 on the wire. Ignored when `delete` is true. */
+  content?: string;
+  /** When true, the path is deleted from the tree rather than written. */
+  delete?: boolean;
 }
 
 export interface OpenedPullRequest {
@@ -159,14 +164,23 @@ export class GitHubWriter {
       `${API}/repos/${owner}/${repo}/git/commits/${parentSha}`,
     );
 
-    // Create blobs, then a tree based on the parent tree.
+    // Build the tree on top of the parent tree. Writes create a blob; deletes
+    // set sha:null so the path is removed in the new tree.
     const tree = await Promise.all(
       changes.map(async (c) => {
+        if (c.delete) {
+          return {
+            path: c.path,
+            mode: "100644" as const,
+            type: "blob" as const,
+            sha: null,
+          };
+        }
         const blob = await ghWrite<{ sha: string }>(
           this.auth,
           "POST",
           `${API}/repos/${owner}/${repo}/git/blobs`,
-          { content: b64encode(c.content), encoding: "base64" },
+          { content: b64encode(c.content ?? ""), encoding: "base64" },
         );
         return { path: c.path, mode: "100644" as const, type: "blob" as const, sha: blob.sha };
       }),

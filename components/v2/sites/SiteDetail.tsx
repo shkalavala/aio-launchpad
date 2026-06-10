@@ -14,11 +14,14 @@ import {
   Workflow,
   Radio,
   Send,
+  Trash2,
 } from "lucide-react";
 import type { FleetSite, LayerBase, SecretSyncStatus } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 import { useV2Store } from "@/store/useV2Store";
+import { useIsRepoConnected } from "@/store/useRepoConnection";
+import { RemoveSiteDialog } from "@/components/v2/sites/RemoveSiteDialog";
 import { buildConfigPair } from "@/lib/v2/config";
 import { DiffView } from "@/components/v2/diff/DiffView";
 import { healthMeta, clusterInfo, envTone, regionLabel } from "@/lib/v2/format";
@@ -38,7 +41,9 @@ const TABS: { id: TabId; label: string; icon: typeof Server }[] = [
 
 export function SiteDetail({ fs }: { fs: FleetSite }) {
   const [tab, setTab] = useState<TabId>("infra");
+  const [removing, setRemoving] = useState(false);
   const mode = useV2Store((s) => s.mode);
+  const repoConnected = useIsRepoConnected();
   const env = fs.runtime.environment;
   const health = healthMeta(fs.runtime.health);
 
@@ -59,6 +64,16 @@ export function SiteDetail({ fs }: { fs: FleetSite }) {
             <span className={cn("h-2 w-2 rounded-full", health.dot)} />
             {health.label}
           </span>
+          {repoConnected && (
+            <button
+              type="button"
+              onClick={() => setRemoving(true)}
+              className="ml-auto inline-flex items-center gap-1.5 rounded border border-border-strong bg-surface px-2.5 py-1 text-[12px] font-medium text-fg-muted hover:border-danger/50 hover:text-danger"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Remove site
+            </button>
+          )}
         </div>
         <div className="mt-1 text-[12px] text-fg-subtle">
           {regionLabel(fs.resolvedLocation)} · {fs.site.resourceGroup}
@@ -93,6 +108,10 @@ export function SiteDetail({ fs }: { fs: FleetSite }) {
         {tab === "workloads" && <WorkloadsTab fs={fs} />}
         {tab === "ops" && <OperationsHistoryTab fs={fs} />}
       </div>
+
+      {removing && (
+        <RemoveSiteDialog siteName={fs.site.name} onClose={() => setRemoving(false)} />
+      )}
     </div>
   );
 }

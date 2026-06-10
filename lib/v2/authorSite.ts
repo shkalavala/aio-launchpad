@@ -112,3 +112,18 @@ export function buildSiteYaml(input: NewSiteInput): string {
 export function buildSiteFileChange(workspace: string, input: NewSiteInput): FileChange {
   return { path: newSitePath(workspace, input.name), content: buildSiteYaml(input) };
 }
+
+/** Branch name for a site-removal PR. */
+export function removeSiteBranch(name: string): string {
+  return `launchpad/remove-site-${name}`;
+}
+
+/**
+ * Build the file change that removes a site's YAML from the repo. The path
+ * mirrors newSitePath so the leaf the fleet rendered is exactly the file we
+ * delete. Templates under shared/ are intentionally out of scope — this only
+ * removes a leaf kind:Site, never a shared default other sites inherit.
+ */
+export function buildSiteRemoval(workspace: string, name: string): FileChange {
+  return { path: newSitePath(workspace, name), delete: true };
+}
