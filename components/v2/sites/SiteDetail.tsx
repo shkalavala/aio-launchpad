@@ -11,6 +11,9 @@ import {
   History,
   SlidersHorizontal,
   Pencil,
+  Workflow,
+  Radio,
+  Send,
 } from "lucide-react";
 import type { FleetSite, LayerBase, SecretSyncStatus } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
@@ -22,6 +25,7 @@ import { healthMeta, clusterInfo, envTone, regionLabel } from "@/lib/v2/format";
 import { EVENTS_BY_SITE, type SiteEvent } from "@/lib/fixtures/events";
 import { SECRETS_BY_SITE, kvForSite } from "@/lib/fixtures/secrets";
 import { RELEASES_BY_ID } from "@/lib/fixtures/releases";
+import { siteResources } from "@/lib/v2/resources";
 
 type TabId = "infra" | "config" | "workloads" | "ops";
 
@@ -215,6 +219,7 @@ function WorkloadsTab({ fs }: { fs: FleetSite }) {
   const workloads = fs.site.layers?.workloads ?? [];
   const secrets = SECRETS_BY_SITE[fs.site.name] ?? [];
   const kv = kvForSite(fs.site.name);
+  const res = siteResources(fs);
 
   return (
     <div className="max-w-3xl space-y-5">
@@ -237,6 +242,66 @@ function WorkloadsTab({ fs }: { fs: FleetSite }) {
             <div className="px-3 py-2 text-[12px] text-fg-subtle">Release pins unavailable.</div>
           )}
         </div>
+      </section>
+
+      <section>
+        <div className="mb-2 flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-[13px] font-semibold text-fg">
+            <Workflow className="h-4 w-4 text-accent" />
+            Data flows
+            <span className="font-mono text-[12px] font-normal text-fg-subtle">
+              profile {res.profile.name} · {res.profile.instanceCount}×
+            </span>
+          </div>
+          <Badge tone="neutral" className="text-[10px]">authored in DOE · read-only</Badge>
+        </div>
+        <div className="rounded-lg border border-border bg-surface">
+          {res.dataflows.map((d) => (
+            <div
+              key={d.name}
+              className="flex items-center justify-between gap-3 border-b border-border px-3 py-2 text-[12px] last:border-0"
+            >
+              <span className="font-medium text-fg">{d.name}</span>
+              <span className="flex items-center gap-1.5 text-[11px] text-fg-muted">
+                <span className="font-mono">{d.source}</span>
+                <Send className="h-3 w-3 text-fg-subtle" />
+                <span className="font-mono">{d.destination}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-2 flex items-center gap-1.5 text-[13px] font-semibold text-fg">
+          <Radio className="h-4 w-4 text-accent" />
+          Assets &amp; endpoints
+        </div>
+        <div className="rounded-lg border border-border bg-surface">
+          <div className="flex items-center justify-between border-b border-border px-3 py-2 text-[12px]">
+            <span className="text-fg">{res.assets.protocol} assets</span>
+            <span className="text-[11px] text-fg-muted">
+              <span className="font-mono text-fg">{res.assets.count}</span> assets · sampling{" "}
+              <span className="font-mono">{res.assets.samplingMs}ms</span>
+            </span>
+          </div>
+          {res.endpoints.map((e) => (
+            <div
+              key={e.name}
+              className="flex items-center justify-between border-b border-border px-3 py-2 text-[12px] last:border-0"
+            >
+              <span className="flex items-center gap-2">
+                <span className="text-fg">{e.name}</span>
+                <Badge tone="neutral" className="text-[10px]">{e.kind}</Badge>
+              </span>
+              <span className="font-mono text-[11px] text-fg-muted">{e.target}</span>
+            </div>
+          ))}
+        </div>
+        <p className="mt-1.5 text-[11px] text-fg-subtle">
+          What this site collects and where it sends. Add or change flows and assets in DOE; Launchpad
+          rolls the resulting config across the fleet.
+        </p>
       </section>
 
       <section>
