@@ -86,6 +86,11 @@ export const COMMIT_HISTORY: CommitOption[] = [
  * parameter change already authored (in the config editor or upstream, e.g.
  * DOE) and committed to the fleet repo — "apply patch" rolls it forward across
  * sites, as opposed to a solution-deploy which stands up new capability.
+ *
+ * Scoped to AIO config that customers realistically re-tune across a fleet:
+ * dataflow profile throughput, OPC UA asset sampling, and Key Vault secret
+ * sync. (Broker memory profile is a deploy-time Broker setting, not a fleet
+ * patch, so it is intentionally absent here.)
  */
 export interface ConfigPatch {
   id: string;
@@ -97,23 +102,23 @@ export interface ConfigPatch {
 
 export const CONFIG_PATCHES: ConfigPatch[] = [
   {
-    id: "patch-broker-mem",
-    label: "Broker memory profile → Medium",
-    summary: "Authored in the config editor, staged in git.",
-    before: "Low",
-    after: "Medium",
+    id: "patch-dataflow-scale",
+    label: "Dataflow profile instances → 3",
+    summary: "Scale the default dataflow profile to add throughput on busier lines.",
+    before: "2",
+    after: "3",
   },
   {
-    id: "patch-dataflow-count",
-    label: "Default dataflow instances → 2",
-    summary: "Scale dataflow throughput on busier lines.",
-    before: "1",
-    after: "2",
+    id: "patch-opcua-sampling",
+    label: "OPC UA sampling interval → 500 ms",
+    summary: "Tighten asset telemetry sampling on the OPC UA connector.",
+    before: "1000 ms",
+    after: "500 ms",
   },
   {
     id: "patch-secret-sync",
     label: "Enable Key Vault secret sync",
-    summary: "Turn on secret sync so sites pull from central KV.",
+    summary: "Turn on secret sync so sites pull endpoint credentials from central Key Vault.",
     before: "off",
     after: "on",
   },
