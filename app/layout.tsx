@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { TopNav } from "@/components/shell/TopNav";
-import { FleetRepoBanner } from "@/components/shell/FleetRepoBanner";
+import { ClassicChrome } from "@/components/shell/ClassicChrome";
 
 export const metadata: Metadata = {
   title: "AIO Launchpad",
@@ -13,8 +12,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="h-screen overflow-hidden">
         <div className="flex h-screen flex-col">
-          <TopNav />
-          <FleetRepoBanner />
+          <ClassicChrome />
           <main className="flex-1 overflow-hidden">{children}</main>
         </div>
       </body>
