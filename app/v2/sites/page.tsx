@@ -1,17 +1,22 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Building2, MapPin } from "lucide-react";
+import { Building2, MapPin, LayoutGrid, ListTree } from "lucide-react";
 import { PageHeader } from "@/components/v2/ui/PageHeader";
 import { useV2Fleet } from "@/lib/useV2Fleet";
 import { groupHierarchy, regionLabel } from "@/lib/v2/format";
 import { SiteCard } from "@/components/v2/sites/SiteCard";
 import { SiteFilters } from "@/components/v2/sites/SiteFilters";
+import { InheritanceTree } from "@/components/v2/sites/InheritanceTree";
+import { cn } from "@/lib/utils";
+
+type SitesView = "grouped" | "inheritance";
 
 export default function V2SitesPage() {
   const fleet = useV2Fleet();
   const [activeRegion, setActiveRegion] = useState<string | null>(null);
   const [activeEnv, setActiveEnv] = useState<string | null>(null);
+  const [view, setView] = useState<SitesView>("grouped");
 
   const regions = useMemo(() => {
     const slugs = Array.from(new Set(fleet.map((fs) => fs.resolvedLocation)));
@@ -45,20 +50,56 @@ export default function V2SitesPage() {
         description="Your fleet by Enterprise, Region, and Site. Environment and cluster are shown per site."
       />
       <div className="space-y-6 px-6 py-5">
-        <SiteFilters
-          regions={regions}
-          environments={environments}
-          activeRegion={activeRegion}
-          activeEnv={activeEnv}
-          onRegion={setActiveRegion}
-          onEnv={setActiveEnv}
-        />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SiteFilters
+            regions={regions}
+            environments={environments}
+            activeRegion={activeRegion}
+            activeEnv={activeEnv}
+            onRegion={setActiveRegion}
+            onEnv={setActiveEnv}
+          />
+          <div
+            className="inline-flex items-center rounded-full border border-border bg-bg-subtle p-0.5 text-[11px] font-medium"
+            role="group"
+            aria-label="Sites view"
+          >
+            {(
+              [
+                { id: "grouped", label: "Grouped", icon: LayoutGrid },
+                { id: "inheritance", label: "Inheritance", icon: ListTree },
+              ] as const
+            ).map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => setView(v.id)}
+                aria-pressed={view === v.id}
+                title={
+                  v.id === "grouped"
+                    ? "Grouped \u2014 sites by Enterprise, Region, and Site."
+                    : "Inheritance \u2014 how each site resolves config from its template chain."
+                }
+                className={cn(
+                  "inline-flex h-6 items-center gap-1.5 rounded-full px-3 transition-colors",
+                  view === v.id ? "bg-accent text-accent-fg" : "text-fg-muted hover:text-fg",
+                )}
+              >
+                <v.icon className="h-3.5 w-3.5" />
+                {v.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <div className="text-[12px] text-fg-subtle">
           {siteCount} site{siteCount === 1 ? "" : "s"}
         </div>
 
-        {groups.map((ent) => (
+        {view === "inheritance" && <InheritanceTree fleet={filtered} />}
+
+        {view === "grouped" &&
+          groups.map((ent) => (
           <section key={ent.enterprise} className="space-y-4">
             <div className="flex items-center gap-2 text-[13px] font-semibold text-fg">
               <Building2 className="h-4 w-4 text-accent" />
@@ -84,9 +125,9 @@ export default function V2SitesPage() {
               </div>
             ))}
           </section>
-        ))}
+          ))}
 
-        {siteCount === 0 && (
+        {view === "grouped" && siteCount === 0 && (
           <div className="rounded-lg border border-dashed border-border py-12 text-center text-[13px] text-fg-subtle">
             No sites match the current filters.
           </div>
