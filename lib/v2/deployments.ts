@@ -81,6 +81,44 @@ export const COMMIT_HISTORY: CommitOption[] = [
   { sha: "e22a5f8", message: "init: onboard hamburg paintshop", author: "Jonas W.", at: "2026-06-01T16:45:00Z" },
 ];
 
+/**
+ * Staged config changes available to push onto sites. A patch is a narrow
+ * parameter change already authored (in the config editor or upstream, e.g.
+ * DOE) and committed to the fleet repo — "apply patch" rolls it forward across
+ * sites, as opposed to a solution-deploy which stands up new capability.
+ */
+export interface ConfigPatch {
+  id: string;
+  label: string;
+  summary: string;
+  before: string;
+  after: string;
+}
+
+export const CONFIG_PATCHES: ConfigPatch[] = [
+  {
+    id: "patch-broker-mem",
+    label: "Broker memory profile → Medium",
+    summary: "Authored in the config editor, staged in git.",
+    before: "Low",
+    after: "Medium",
+  },
+  {
+    id: "patch-dataflow-count",
+    label: "Default dataflow instances → 2",
+    summary: "Scale dataflow throughput on busier lines.",
+    before: "1",
+    after: "2",
+  },
+  {
+    id: "patch-secret-sync",
+    label: "Enable Key Vault secret sync",
+    summary: "Turn on secret sync so sites pull from central KV.",
+    before: "off",
+    after: "on",
+  },
+];
+
 /** Recent deployment history seed. */
 export const RECENT_DEPLOYMENTS: Deployment[] = [
   {

@@ -12,6 +12,7 @@ import {
   Check,
   Boxes,
   RefreshCw,
+  SlidersHorizontal,
 } from "lucide-react";
 import { PageHeader } from "@/components/v2/ui/PageHeader";
 import { useV2Fleet } from "@/lib/useV2Fleet";
@@ -20,6 +21,7 @@ import { regionLabel } from "@/lib/v2/format";
 import { SOLUTIONS } from "@/lib/fixtures/solutions";
 import {
   COMMIT_HISTORY,
+  CONFIG_PATCHES,
   KIND_META,
   RECENT_DEPLOYMENTS,
   deployLifecycle,
@@ -124,6 +126,7 @@ function DeploymentRow({
   const status = statusMeta(d.status);
   const isRollback = d.kind === "rollback";
   const isSolution = d.kind === "solution-deploy";
+  const isPatch = d.kind === "config-apply";
   return (
     <tr className="hover:bg-bg-subtle/60">
       <td className="px-4 py-2.5">
@@ -132,6 +135,8 @@ function DeploymentRow({
             <RotateCcw className="h-4 w-4 text-warning" />
           ) : isSolution ? (
             <Boxes className="h-4 w-4 text-accent" />
+          ) : isPatch ? (
+            <SlidersHorizontal className="h-4 w-4 text-accent" />
           ) : (
             <Rocket className="h-4 w-4 text-accent" />
           )}
@@ -189,11 +194,13 @@ function NewDeploymentWizard({
   const [targetRelease, setTargetRelease] = useState<AioReleaseId>("2606");
   const [commitSha, setCommitSha] = useState(COMMIT_HISTORY[0].sha);
   const [solutionId, setSolutionId] = useState(SOLUTIONS[0].id);
+  const [patchId, setPatchId] = useState(CONFIG_PATCHES[0].id);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [useApprovals, setUseApprovals] = useState(false);
   const [approver, setApprover] = useState("");
 
   const solution = SOLUTIONS.find((s) => s.id === solutionId) ?? SOLUTIONS[0];
+  const patch = CONFIG_PATCHES.find((p) => p.id === patchId) ?? CONFIG_PATCHES[0];
 
   function toggleSite(name: string) {
     setSelected((prev) => {
@@ -221,9 +228,12 @@ function NewDeploymentWizard({
         if (kind === "solution-deploy") {
           return { siteName: s.site.name, after: `+ ${solution.name}` };
         }
+        if (kind === "config-apply") {
+          return { siteName: s.site.name, before: patch.before, after: patch.after };
+        }
         return { siteName: s.site.name };
       });
-  }, [fleet, selected, kind, targetRelease, commitSha, solution]);
+  }, [fleet, selected, kind, targetRelease, commitSha, solution, patch]);
 
   const approvalOk = !useApprovals || approver.trim().length > 0;
   const canExecute = selected.size > 0 && approvalOk;
@@ -236,7 +246,7 @@ function NewDeploymentWizard({
           ? `Rollback ${selected.size} site${selected.size === 1 ? "" : "s"} to ${commitSha}`
           : kind === "solution-deploy"
             ? `Deploy ${solution.name} to ${selected.size} site${selected.size === 1 ? "" : "s"}`
-            : `Apply config to ${selected.size} site${selected.size === 1 ? "" : "s"}`;
+            : `Apply ${patch.label} to ${selected.size} site${selected.size === 1 ? "" : "s"}`;
     onExecute({
       id: `dep-${shortId()}`,
       title,
@@ -280,6 +290,13 @@ function NewDeploymentWizard({
                 desc="Roll out an AIO Solution onto sites."
               />
               <ActionCard
+                active={kind === "config-apply"}
+                onClick={() => setKind("config-apply")}
+                icon={<SlidersHorizontal className="h-4 w-4" />}
+                title="Apply patch"
+                desc="Push a staged config change to sites."
+              />
+              <ActionCard
                 active={kind === "rollback"}
                 onClick={() => setKind("rollback")}
                 icon={<RotateCcw className="h-4 w-4" />}
@@ -319,6 +336,20 @@ function NewDeploymentWizard({
               </Select>
               <p className="mt-1.5 text-[11px] text-fg-subtle">
                 {solution.tagline} Creates: {solution.creates.join(", ")}.
+              </p>
+            </WizStep>
+          ) : kind === "config-apply" ? (
+            <WizStep n={2} label="Choose a patch">
+              <Select value={patchId} onChange={(e) => setPatchId(e.target.value)} className="w-full">
+                {CONFIG_PATCHES.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </Select>
+              <p className="mt-1.5 text-[11px] text-fg-subtle">
+                {patch.summary} The pipeline re-applies this committed change; no direct
+                cluster write.
               </p>
             </WizStep>
           ) : (
