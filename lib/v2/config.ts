@@ -131,15 +131,28 @@ export interface EditableField {
   options?: string[];
   /** Infra-tuning knobs shown only in Advanced mode. */
   advanced?: boolean;
+  /**
+   * How a change to this field reaches the fleet:
+   *  - "release": deploy-time-only (a new deployment/redeploy is required, e.g.
+   *    broker cardinality + memory profile per AIO docs). Rolls via a release.
+   *  - "patch": live-tunable on existing resources (dataflow instance count,
+   *    secret sync). Rolls via Apply patch.
+   */
+  applyVia: "release" | "patch";
 }
 
 export const EDITABLE_FIELDS: EditableField[] = [
-  { path: "aioRelease", label: "AIO release", kind: "enum", options: ["2512", "2602", "2603", "2604", "2605", "2606"] },
-  { path: "brokerConfig.replicas", label: "Broker replicas", kind: "number", advanced: true },
-  { path: "brokerConfig.memoryProfile", label: "Broker memory profile", kind: "enum", options: ["Low", "Medium", "High"], advanced: true },
-  { path: "defaultDataflowInstanceCount", label: "Dataflow instance count", kind: "number", advanced: true },
-  { path: "deployOptions.enableSecretSync", label: "Secret sync", kind: "boolean" },
+  { path: "aioRelease", label: "AIO release", kind: "enum", options: ["2512", "2602", "2603", "2604", "2605", "2606"], applyVia: "release" },
+  { path: "brokerConfig.replicas", label: "Broker replicas", kind: "number", advanced: true, applyVia: "release" },
+  { path: "brokerConfig.memoryProfile", label: "Broker memory profile", kind: "enum", options: ["Low", "Medium", "High"], advanced: true, applyVia: "release" },
+  { path: "defaultDataflowInstanceCount", label: "Dataflow instance count", kind: "number", advanced: true, applyVia: "patch" },
+  { path: "deployOptions.enableSecretSync", label: "Secret sync", kind: "boolean", applyVia: "patch" },
 ];
+
+/** Look up an editable field by its dotted path. */
+export function fieldByPath(path: string): EditableField | undefined {
+  return EDITABLE_FIELDS.find((f) => f.path === path);
+}
 
 /** Repo-relative file path for a site's config, used in pending changes. */
 export function siteConfigPath(siteName: string): string {

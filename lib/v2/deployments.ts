@@ -1,4 +1,6 @@
 import type { Tone } from "@/lib/v2/format";
+import type { PendingChange } from "@/lib/git/model";
+import { fieldByPath } from "@/lib/v2/config";
 
 export type DeployKind = "release-upgrade" | "config-apply" | "rollback" | "solution-deploy";
 export type DeployStatus =
@@ -82,15 +84,15 @@ export const COMMIT_HISTORY: CommitOption[] = [
 ];
 
 /**
- * Staged config changes available to push onto sites. A patch is a narrow
- * parameter change already authored (in the config editor or upstream, e.g.
- * DOE) and committed to the fleet repo — "apply patch" rolls it forward across
- * sites, as opposed to a solution-deploy which stands up new capability.
+ * A config patch available to roll across the fleet. A patch is NOT an invented
+ * setting — it is a real git change: either a committed change in the repo or a
+ * live pending change authored in Configurations this session. Applying a patch
+ * rolls that already-authored change forward across sites.
  *
- * Scoped to AIO config that customers realistically re-tune across a fleet:
- * dataflow profile throughput, OPC UA asset sampling, and Key Vault secret
- * sync. (Broker memory profile is a deploy-time Broker setting, not a fleet
- * patch, so it is intentionally absent here.)
+ * Scoped to AIO config that is live-tunable across a fleet (dataflow profile
+ * throughput, OPC UA asset sampling, Key Vault secret sync). Deploy-time-only
+ * settings (broker cardinality + memory profile) roll via a release, not a
+ * patch.
  */
 export interface ConfigPatch {
   id: string;
@@ -98,8 +100,22 @@ export interface ConfigPatch {
   summary: string;
   before: string;
   after: string;
+  /** Repo-relative file the change lands in. */
+  path: string;
+  /** Dotted field key the change touches. */
+  fieldKey: string;
+  /** Committed change: the commit sha. Undefined for an uncommitted pending change. */
+  commitSha?: string;
+  /** True when sourced from a live, uncommitted pending change (committed on deploy). */
+  pending?: boolean;
+  /** Pending-change id, when sourced from the store. */
+  pendingId?: string;
 }
 
+/**
+ * Seeded committed config changes available to roll out — each is a real commit
+ * in the repo (sha + message), authored earlier in Configurations.
+ */
 export const CONFIG_PATCHES: ConfigPatch[] = [
   {
     id: "patch-dataflow-scale",
@@ -107,6 +123,9 @@ export const CONFIG_PATCHES: ConfigPatch[] = [
     summary: "Scale the default dataflow profile to add throughput on busier lines.",
     before: "1",
     after: "3",
+    path: "config/dataflow-profile.yaml",
+    fieldKey: "defaultDataflowInstanceCount",
+    commitSha: "d4f1a08",
   },
   {
     id: "patch-opcua-sampling",
@@ -114,6 +133,9 @@ export const CONFIG_PATCHES: ConfigPatch[] = [
     summary: "Tighten asset telemetry sampling on the OPC UA connector.",
     before: "1000 ms",
     after: "500 ms",
+    path: "config/opcua-connector.yaml",
+    fieldKey: "opcuaSamplingInterval",
+    commitSha: "9c2b7e1",
   },
   {
     id: "patch-secret-sync",
@@ -121,8 +143,44 @@ export const CONFIG_PATCHES: ConfigPatch[] = [
     summary: "Turn on secret sync so sites pull endpoint credentials from central Key Vault.",
     before: "off",
     after: "on",
+    path: "config/secret-sync.yaml",
+    fieldKey: "deployOptions.enableSecretSync",
+    commitSha: "5a8f0d3",
   },
 ];
+
+function fmtPatchVal(v: unknown): string {
+  if (typeof v === "boolean") return v ? "on" : "off";
+  return String(v);
+}
+
+/**
+ * Convert live pending changes (authored in Configurations this session) into
+ * deployable patches. Only patch-eligible fields qualify — deploy-time fields
+ * (broker cardinality/memory, AIO release) roll via a release, not a patch.
+ * These patches are uncommitted; deploying one commits it first.
+ */
+export function pendingChangesToPatches(pending: PendingChange[]): ConfigPatch[] {
+  const out: ConfigPatch[] = [];
+  for (const pc of pending) {
+    for (const f of pc.fields) {
+      const meta = fieldByPath(f.key);
+      if (!meta || meta.applyVia !== "patch") continue;
+      out.push({
+        id: `pending-${pc.id}-${f.key}`,
+        label: `${meta.label} → ${fmtPatchVal(f.after)}`,
+        summary: `Authored this session on ${pc.siteName ?? pc.path}. Committed on deploy.`,
+        before: fmtPatchVal(f.before),
+        after: fmtPatchVal(f.after),
+        path: pc.path,
+        fieldKey: f.key,
+        pending: true,
+        pendingId: pc.id,
+      });
+    }
+  }
+  return out;
+}
 
 /** Recent deployment history seed. */
 export const RECENT_DEPLOYMENTS: Deployment[] = [

@@ -13,6 +13,7 @@ import {
   Boxes,
   RefreshCw,
   SlidersHorizontal,
+  FileCode,
 } from "lucide-react";
 import { PageHeader } from "@/components/v2/ui/PageHeader";
 import { useV2Fleet } from "@/lib/useV2Fleet";
@@ -25,6 +26,7 @@ import {
   KIND_META,
   RECENT_DEPLOYMENTS,
   deployLifecycle,
+  pendingChangesToPatches,
   shortId,
   statusMeta,
   type Deployment,
@@ -189,18 +191,27 @@ function NewDeploymentWizard({
   onExecute: (d: Deployment) => void;
 }) {
   const fleet = useV2Fleet();
+  const pendingChanges = useV2Store((s) => s.pendingChanges);
+  const commitPendingChange = useV2Store((s) => s.commitPendingChange);
+
+  // Patches come from real git: live pending changes authored this session
+  // (patch-eligible fields) plus seeded committed changes in the repo.
+  const patches = useMemo(
+    () => [...pendingChangesToPatches(pendingChanges), ...CONFIG_PATCHES],
+    [pendingChanges],
+  );
 
   const [kind, setKind] = useState<DeployKind>("release-upgrade");
   const [targetRelease, setTargetRelease] = useState<AioReleaseId>("2606");
   const [commitSha, setCommitSha] = useState(COMMIT_HISTORY[0].sha);
   const [solutionId, setSolutionId] = useState(SOLUTIONS[0].id);
-  const [patchId, setPatchId] = useState(CONFIG_PATCHES[0].id);
+  const [patchId, setPatchId] = useState(patches[0].id);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [useApprovals, setUseApprovals] = useState(false);
   const [approver, setApprover] = useState("");
 
   const solution = SOLUTIONS.find((s) => s.id === solutionId) ?? SOLUTIONS[0];
-  const patch = CONFIG_PATCHES.find((p) => p.id === patchId) ?? CONFIG_PATCHES[0];
+  const patch = patches.find((p) => p.id === patchId) ?? patches[0];
 
   function toggleSite(name: string) {
     setSelected((prev) => {
@@ -239,6 +250,13 @@ function NewDeploymentWizard({
   const canExecute = selected.size > 0 && approvalOk;
 
   function execute() {
+    // A pending (uncommitted) patch is committed first, so the deployment
+    // references a real commit — closing the author -> commit -> deploy loop.
+    let patchCommit = patch.commitSha;
+    if (kind === "config-apply" && patch.pending && patch.pendingId) {
+      commitPendingChange(patch.pendingId, `config: ${patch.label}`);
+      patchCommit = useV2Store.getState().repo.lastCommit.sha;
+    }
     const title =
       kind === "release-upgrade"
         ? `Upgrade ${selected.size} site${selected.size === 1 ? "" : "s"} to ${targetRelease}`
@@ -252,7 +270,12 @@ function NewDeploymentWizard({
       title,
       kind,
       status: useApprovals ? "waiting-approval" : "submitted",
-      commitSha: kind === "rollback" ? commitSha : "staged",
+      commitSha:
+        kind === "rollback"
+          ? commitSha
+          : kind === "config-apply"
+            ? patchCommit ?? "staged"
+            : "staged",
       scopeLabel: `${selected.size} site${selected.size === 1 ? "" : "s"}`,
       changes,
       createdAt: new Date().toISOString(),
@@ -341,16 +364,41 @@ function NewDeploymentWizard({
           ) : kind === "config-apply" ? (
             <WizStep n={2} label="Choose a patch">
               <Select value={patchId} onChange={(e) => setPatchId(e.target.value)} className="w-full">
-                {CONFIG_PATCHES.map((p) => (
+                {patches.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.label}
+                    {p.pending ? " · uncommitted" : p.commitSha ? ` · ${p.commitSha}` : ""}
                   </option>
                 ))}
               </Select>
-              <p className="mt-1.5 text-[11px] text-fg-subtle">
-                {patch.summary} The pipeline re-applies this committed change; no direct
-                cluster write.
-              </p>
+              <p className="mt-1.5 text-[11px] text-fg-subtle">{patch.summary}</p>
+              <div className="mt-2 rounded-md border border-border bg-bg-subtle p-2 text-[11px]">
+                <div className="flex items-center gap-1.5 text-fg-muted">
+                  <FileCode className="h-3 w-3 text-accent" />
+                  <span className="font-mono">{patch.path}</span>
+                  {patch.pending ? (
+                    <Badge tone="warning" className="text-[10px]">
+                      authored this session
+                    </Badge>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 font-mono text-accent">
+                      <GitCommitHorizontal className="h-3 w-3" />
+                      {patch.commitSha}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-1 flex items-center gap-2 font-mono">
+                  <span className="text-fg-subtle">{patch.fieldKey}:</span>
+                  <span className="text-danger line-through">{patch.before}</span>
+                  <ArrowRight className="h-3 w-3 text-fg-subtle" />
+                  <span className="text-success">{patch.after}</span>
+                </div>
+                {patch.pending && (
+                  <p className="mt-1.5 text-fg-subtle">
+                    Deploying commits this change first, then rolls it across the selected sites.
+                  </p>
+                )}
+              </div>
             </WizStep>
           ) : (
             <WizStep n={2} label="Roll back to commit">

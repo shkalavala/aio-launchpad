@@ -61,6 +61,7 @@ interface V2State {
 
   // ── Resolve through git (commit / PR) ───────────────────────────────────
   commitPending: (message?: string) => void;
+  commitPendingChange: (id: string, message?: string) => void;
   createPullRequest: (title?: string) => void;
   mergePullRequest: () => void;
   closePullRequest: () => void;
@@ -166,6 +167,31 @@ export const useV2Store = create<V2State>()(
             lastCommit: {
               sha: genSha(),
               message: summary,
+              author: "You",
+              at: new Date().toISOString(),
+            },
+          },
+        });
+      },
+
+      // Commit a single pending change (used when Apply patch deploys a
+      // change authored this session) — leaves any other pending changes intact.
+      commitPendingChange: (id, message) => {
+        const { pendingChanges, configOverrides, repo } = get();
+        const target = pendingChanges.find((c) => c.id === id);
+        if (!target) return;
+        const overrides = { ...configOverrides };
+        if (target.siteName) delete overrides[target.siteName];
+        const next = pendingChanges.filter((c) => c.id !== id);
+        set({
+          pendingChanges: next,
+          configOverrides: overrides,
+          pullRequest: next.length ? get().pullRequest : null,
+          repo: {
+            ...repo,
+            lastCommit: {
+              sha: genSha(),
+              message: message ?? `config: update ${target.siteName ?? target.path}`,
               author: "You",
               at: new Date().toISOString(),
             },

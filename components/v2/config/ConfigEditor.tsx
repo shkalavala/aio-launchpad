@@ -103,6 +103,12 @@ export function ConfigEditor({ fs }: { fs: FleetSite }) {
                           edited
                         </Badge>
                       )}
+                      <Badge
+                        tone={field.applyVia === "patch" ? "accent" : "neutral"}
+                        className="text-[10px]"
+                      >
+                        {field.applyVia === "patch" ? "rolls via patch" : "rolls via release"}
+                      </Badge>
                     </div>
                     <p className="font-mono text-[11px] text-fg-subtle">
                       {field.path} · template {fmtVal(inherited)}
