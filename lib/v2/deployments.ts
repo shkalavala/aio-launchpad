@@ -105,7 +105,7 @@ export const CONFIG_PATCHES: ConfigPatch[] = [
     id: "patch-dataflow-scale",
     label: "Dataflow profile instances → 3",
     summary: "Scale the default dataflow profile to add throughput on busier lines.",
-    before: "2",
+    before: "1",
     after: "3",
   },
   {
