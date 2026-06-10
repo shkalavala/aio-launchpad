@@ -47,9 +47,9 @@ export function DeploymentsView() {
   const [deployments, setDeployments] = useState<Deployment[]>(RECENT_DEPLOYMENTS);
   const [wizardOpen, setWizardOpen] = useState(false);
   const advanced = useV2Store((s) => s.mode === "advanced");
-  const reconcileRequests = useV2Store((s) => s.reconcileRequests);
-  const clearReconcileRequest = useV2Store((s) => s.clearReconcileRequest);
-  const handledReconciles = useRef<Set<string>>(new Set());
+  const queuedDeployments = useV2Store((s) => s.queuedDeployments);
+  const dequeueDeployment = useV2Store((s) => s.dequeueDeployment);
+  const handledQueued = useRef<Set<string>>(new Set());
 
   // Walk a run through the remaining lifecycle stages, one step at a time.
   function runLifecycle(id: string, stages: DeployStatus[]) {
@@ -78,30 +78,18 @@ export function DeploymentsView() {
     runLifecycle(id, ["deploying", "succeeded"]);
   }
 
-  // A git-ahead drift the operator queued from the change flyout becomes a
-  // real reconcile deployment here: re-apply git's commit to the drifted site.
+  // A deployment queued from elsewhere (drift reconcile, cert rotation) is
+  // picked up here, rendered, and walked through its pipeline lifecycle.
   useEffect(() => {
-    for (const req of reconcileRequests) {
-      if (handledReconciles.current.has(req.id)) continue;
-      handledReconciles.current.add(req.id);
-      const id = `dep-${shortId()}`;
-      const dep: Deployment = {
-        id,
-        title: `Reconcile ${req.siteName} to git`,
-        kind: "reconcile",
-        status: "submitted",
-        commitSha: req.commitSha,
-        scopeLabel: "1 site",
-        changes: [{ siteName: req.siteName }],
-        createdAt: new Date().toISOString(),
-        requestedBy: "You",
-      };
+    for (const dep of queuedDeployments) {
+      if (handledQueued.current.has(dep.id)) continue;
+      handledQueued.current.add(dep.id);
       setDeployments((prev) => [dep, ...prev]);
-      runLifecycle(id, ["deploying", "succeeded"]);
-      clearReconcileRequest(req.id);
+      runLifecycle(dep.id, ["deploying", "succeeded"]);
+      dequeueDeployment(dep.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reconcileRequests]);
+  }, [queuedDeployments]);
 
   return (
     <div className="px-6 py-5">

@@ -12,6 +12,8 @@ import type {
   RepoState,
 } from "@/lib/git/model";
 import { V2_REPO, INCOMING_CHANGES, DRIFT_RECORDS } from "@/lib/git/fixtures";
+import type { Deployment } from "@/lib/v2/deployments";
+import { shortId } from "@/lib/v2/deployments";
 
 export const V2_PERSIST_KEY = "aio-launchpad-v2-store";
 
@@ -24,19 +26,6 @@ function genSha(): string {
   return Math.random().toString(16).slice(2, 9);
 }
 
-let reconcileCounter = 0;
-
-/**
- * A queued reconcile: git-ahead drift the operator chose to re-apply. The
- * store records the request; the Deployments view consumes it, turns it into a
- * real reconcile deployment, and runs its lifecycle.
- */
-export interface ReconcileRequest {
-  id: string;
-  siteName: string;
-  fields: PendingField[];
-  commitSha: string;
-}
 
 interface StageEditArgs {
   siteName: string;
@@ -65,8 +54,12 @@ interface V2State {
   driftRecords: DriftRecord[];
   /** Drift is computed on demand — nothing shows until a check has been run. */
   driftChecked: boolean;
-  /** Git-ahead drift the operator queued for a reconcile deployment. */
-  reconcileRequests: ReconcileRequest[];
+  /**
+   * Deployments queued from elsewhere in the app (drift reconcile, cert
+   * rotation). The Deployments view drains this, renders each run, and walks
+   * its lifecycle.
+   */
+  queuedDeployments: Deployment[];
   /** Per-site staged field overrides, keyed by site then dotted path. */
   configOverrides: Record<string, Record<string, unknown>>;
 
@@ -91,8 +84,12 @@ interface V2State {
   resolveDrift: (siteName: string) => void;
   /** Queue a git-ahead drift to be re-applied as a reconcile deployment. */
   reconcileDrift: (siteName: string) => void;
-  /** Deployments view calls this once it has turned a request into a run. */
-  clearReconcileRequest: (id: string) => void;
+
+  // ── Queued deployments (consumed by the Deployments view) ──────────────────
+  /** Push a fully-formed deployment for the Deployments view to run. */
+  queueDeployment: (dep: Deployment) => void;
+  /** Deployments view calls this once it has picked up a queued run. */
+  dequeueDeployment: (id: string) => void;
 
   // ── Demo reset ──────────────────────────────────────────────────────────
   resetGitState: () => void;
@@ -106,7 +103,7 @@ function freshGitState() {
     incomingChanges: INCOMING_CHANGES.map((c) => ({ ...c })),
     driftRecords: DRIFT_RECORDS.map((d) => ({ ...d })),
     driftChecked: false,
-    reconcileRequests: [] as ReconcileRequest[],
+    queuedDeployments: [] as Deployment[],
     configOverrides: {} as Record<string, Record<string, unknown>>,
   };
 }
@@ -275,20 +272,28 @@ export const useV2Store = create<V2State>()(
       reconcileDrift: (siteName) => {
         const record = get().driftRecords.find((d) => d.siteName === siteName);
         if (!record) return;
-        const req: ReconcileRequest = {
-          id: `reconcile-${++reconcileCounter}-${genSha()}`,
-          siteName,
-          fields: record.fields,
+        const dep: Deployment = {
+          id: `dep-${shortId()}`,
+          title: `Reconcile ${siteName} to git`,
+          kind: "reconcile",
+          status: "submitted",
           commitSha: get().repo.lastCommit.sha,
+          scopeLabel: "1 site",
+          changes: [{ siteName }],
+          createdAt: new Date().toISOString(),
+          requestedBy: "You",
         };
         set({
-          reconcileRequests: [...get().reconcileRequests, req],
+          queuedDeployments: [...get().queuedDeployments, dep],
           driftRecords: get().driftRecords.filter((d) => d.siteName !== siteName),
         });
       },
 
-      clearReconcileRequest: (id) =>
-        set({ reconcileRequests: get().reconcileRequests.filter((r) => r.id !== id) }),
+      queueDeployment: (dep) =>
+        set({ queuedDeployments: [...get().queuedDeployments, dep] }),
+
+      dequeueDeployment: (id) =>
+        set({ queuedDeployments: get().queuedDeployments.filter((d) => d.id !== id) }),
 
       resetGitState: () => set(freshGitState()),
     }),
