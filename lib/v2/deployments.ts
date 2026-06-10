@@ -1,6 +1,6 @@
 import type { Tone } from "@/lib/v2/format";
 
-export type DeployKind = "release-upgrade" | "config-apply" | "rollback";
+export type DeployKind = "release-upgrade" | "config-apply" | "rollback" | "solution-deploy";
 export type DeployStatus = "succeeded" | "in-progress" | "queued" | "failed";
 
 export interface DeploymentSiteChange {
@@ -27,6 +27,7 @@ export const KIND_META: Record<DeployKind, { label: string }> = {
   "release-upgrade": { label: "Release upgrade" },
   "config-apply": { label: "Config apply" },
   rollback: { label: "Rollback" },
+  "solution-deploy": { label: "Solution deploy" },
 };
 
 export function statusMeta(s: DeployStatus): { label: string; tone: Tone } {
@@ -59,6 +60,22 @@ export const COMMIT_HISTORY: CommitOption[] = [
 
 /** Recent deployment history seed. */
 export const RECENT_DEPLOYMENTS: Deployment[] = [
+  {
+    id: "dep-1043",
+    title: "Deploy OPC UA connector to dev sites",
+    kind: "solution-deploy",
+    status: "succeeded",
+    commitSha: "c5a1e90",
+    scopeLabel: "Dev sites · 3",
+    changes: [
+      { siteName: "stockholm-dev", after: "+ OPC UA connector" },
+      { siteName: "hamburg-dev", after: "+ OPC UA connector" },
+      { siteName: "gothenburg-dev", after: "+ OPC UA connector" },
+    ],
+    createdAt: "2026-06-09T13:40:00Z",
+    requestedBy: "Magnus B.",
+    approvedBy: "Priya N.",
+  },
   {
     id: "dep-1042",
     title: "Upgrade dev sites to 2605",

@@ -10,11 +10,13 @@ import {
   ShieldCheck,
   ArrowRight,
   Check,
+  Boxes,
 } from "lucide-react";
 import { PageHeader } from "@/components/v2/ui/PageHeader";
 import { useV2Fleet } from "@/lib/useV2Fleet";
 import { useV2Store } from "@/store/useV2Store";
 import { regionLabel } from "@/lib/v2/format";
+import { SOLUTIONS } from "@/lib/fixtures/solutions";
 import {
   COMMIT_HISTORY,
   KIND_META,
@@ -37,6 +39,7 @@ const RELEASES: AioReleaseId[] = ["2602", "2603", "2604", "2605", "2606"];
 export function DeploymentsView() {
   const [deployments, setDeployments] = useState<Deployment[]>(RECENT_DEPLOYMENTS);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const advanced = useV2Store((s) => s.mode === "advanced");
 
   function onExecute(d: Deployment) {
     setDeployments((prev) => [d, ...prev]);
@@ -71,12 +74,13 @@ export function DeploymentsView() {
               <th className="px-4 py-2 font-medium">Scope</th>
               <th className="px-4 py-2 font-medium">Commit</th>
               <th className="px-4 py-2 font-medium">Status</th>
+              {advanced && <th className="px-4 py-2 font-medium">Approval</th>}
               <th className="px-4 py-2 font-medium">When</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {deployments.map((d) => (
-              <DeploymentRow key={d.id} d={d} />
+              <DeploymentRow key={d.id} d={d} advanced={advanced} />
             ))}
           </tbody>
         </table>
@@ -89,15 +93,18 @@ export function DeploymentsView() {
   );
 }
 
-function DeploymentRow({ d }: { d: Deployment }) {
+function DeploymentRow({ d, advanced }: { d: Deployment; advanced: boolean }) {
   const status = statusMeta(d.status);
   const isRollback = d.kind === "rollback";
+  const isSolution = d.kind === "solution-deploy";
   return (
     <tr className="hover:bg-bg-subtle/60">
       <td className="px-4 py-2.5">
         <div className="flex items-center gap-2">
           {isRollback ? (
             <RotateCcw className="h-4 w-4 text-warning" />
+          ) : isSolution ? (
+            <Boxes className="h-4 w-4 text-accent" />
           ) : (
             <Rocket className="h-4 w-4 text-accent" />
           )}
@@ -115,6 +122,14 @@ function DeploymentRow({ d }: { d: Deployment }) {
       <td className="px-4 py-2.5">
         <Badge tone={status.tone}>{status.label}</Badge>
       </td>
+      {advanced && (
+        <td className="px-4 py-2.5 text-[12px] text-fg-muted">
+          <span className="text-fg">{d.requestedBy}</span>
+          {d.approvedBy && (
+            <span className="text-fg-subtle"> → {d.approvedBy}</span>
+          )}
+        </td>
+      )}
       <td className="px-4 py-2.5 text-[12px] text-fg-subtle">{relTime(d.createdAt)}</td>
     </tr>
   );
@@ -135,9 +150,12 @@ function NewDeploymentWizard({
   const [kind, setKind] = useState<DeployKind>("release-upgrade");
   const [targetRelease, setTargetRelease] = useState<AioReleaseId>("2606");
   const [commitSha, setCommitSha] = useState(COMMIT_HISTORY[0].sha);
+  const [solutionId, setSolutionId] = useState(SOLUTIONS[0].id);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [approver, setApprover] = useState("");
   const [approved, setApproved] = useState(false);
+
+  const solution = SOLUTIONS.find((s) => s.id === solutionId) ?? SOLUTIONS[0];
 
   function toggleSite(name: string) {
     setSelected((prev) => {
@@ -162,9 +180,12 @@ function NewDeploymentWizard({
         if (kind === "rollback") {
           return { siteName: s.site.name, before: s.runtime.resolvedRelease, after: `@${commitSha}` };
         }
+        if (kind === "solution-deploy") {
+          return { siteName: s.site.name, after: `+ ${solution.name}` };
+        }
         return { siteName: s.site.name };
       });
-  }, [fleet, selected, kind, targetRelease, commitSha]);
+  }, [fleet, selected, kind, targetRelease, commitSha, solution]);
 
   const approvalOk = mode === "basic" || (approved && approver.trim().length > 0);
   const canExecute = selected.size > 0 && approvalOk;
@@ -175,7 +196,9 @@ function NewDeploymentWizard({
         ? `Upgrade ${selected.size} site${selected.size === 1 ? "" : "s"} to ${targetRelease}`
         : kind === "rollback"
           ? `Rollback ${selected.size} site${selected.size === 1 ? "" : "s"} to ${commitSha}`
-          : `Apply config to ${selected.size} site${selected.size === 1 ? "" : "s"}`;
+          : kind === "solution-deploy"
+            ? `Deploy ${solution.name} to ${selected.size} site${selected.size === 1 ? "" : "s"}`
+            : `Apply config to ${selected.size} site${selected.size === 1 ? "" : "s"}`;
     onExecute({
       id: `dep-${shortId()}`,
       title,
@@ -212,6 +235,13 @@ function NewDeploymentWizard({
                 desc="Move sites to a newer AIO release."
               />
               <ActionCard
+                active={kind === "solution-deploy"}
+                onClick={() => setKind("solution-deploy")}
+                icon={<Boxes className="h-4 w-4" />}
+                title="Deploy solution"
+                desc="Roll out an AIO Solution onto sites."
+              />
+              <ActionCard
                 active={kind === "rollback"}
                 onClick={() => setKind("rollback")}
                 icon={<RotateCcw className="h-4 w-4" />}
@@ -235,6 +265,23 @@ function NewDeploymentWizard({
                   </option>
                 ))}
               </Select>
+            </WizStep>
+          ) : kind === "solution-deploy" ? (
+            <WizStep n={2} label="Choose a solution">
+              <Select
+                value={solutionId}
+                onChange={(e) => setSolutionId(e.target.value)}
+                className="w-full"
+              >
+                {SOLUTIONS.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} · {s.tag}
+                  </option>
+                ))}
+              </Select>
+              <p className="mt-1.5 text-[11px] text-fg-subtle">
+                {solution.tagline} Creates: {solution.creates.join(", ")}.
+              </p>
             </WizStep>
           ) : (
             <WizStep n={2} label="Roll back to commit">
@@ -287,13 +334,15 @@ function NewDeploymentWizard({
                     <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-fg">
                       {c.siteName}
                     </span>
-                    {c.before !== undefined && (
+                    {c.before !== undefined ? (
                       <>
                         <span className="font-mono text-danger line-through">{c.before}</span>
                         <ArrowRight className="h-3 w-3 text-fg-subtle" />
                         <span className="font-mono text-success">{c.after}</span>
                       </>
-                    )}
+                    ) : c.after !== undefined ? (
+                      <span className="font-mono text-success">{c.after}</span>
+                    ) : null}
                   </div>
                 ))}
               </div>

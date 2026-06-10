@@ -5,13 +5,16 @@ import { Server, Boxes, GitCompareArrows } from "lucide-react";
 import type { FleetSite } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
+import { useV2Store } from "@/store/useV2Store";
 import { healthMeta, envTone, clusterInfo, siteHasDrift } from "@/lib/v2/format";
 
 /**
  * A single site card: status, cluster info, and environment. Drift is shown as
  * a badge when the site diverges from git. Links to the site detail view.
+ * Cluster/Arc infrastructure detail only appears in Advanced mode.
  */
 export function SiteCard({ fs }: { fs: FleetSite }) {
+  const advanced = useV2Store((s) => s.mode === "advanced");
   const env = fs.runtime.environment;
   const health = healthMeta(fs.runtime.health);
   const cluster = clusterInfo(fs);
@@ -37,13 +40,15 @@ export function SiteCard({ fs }: { fs: FleetSite }) {
       </div>
 
       <div className="space-y-1 border-t border-border pt-2 text-[12px] text-fg-muted">
-        <div className="flex items-center gap-1.5">
-          <Server className="h-3.5 w-3.5 text-fg-subtle" />
-          <span>
-            {cluster.distro}
-            {cluster.version && <span className="ml-1 font-mono text-fg-subtle">{cluster.version}</span>}
-          </span>
-        </div>
+        {advanced && (
+          <div className="flex items-center gap-1.5">
+            <Server className="h-3.5 w-3.5 text-fg-subtle" />
+            <span>
+              {cluster.distro}
+              {cluster.version && <span className="ml-1 font-mono text-fg-subtle">{cluster.version}</span>}
+            </span>
+          </div>
+        )}
         <div className="flex items-center gap-1.5">
           <Boxes className="h-3.5 w-3.5 text-fg-subtle" />
           <span>
