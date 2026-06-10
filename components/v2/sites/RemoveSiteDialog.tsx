@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useRepoConnection } from "@/store/useRepoConnection";
-import { writerFromConnection } from "@/lib/github/writeClient";
+import { writerFromConnection, resolveWriteToken, envWriteToken } from "@/lib/github/writeClient";
 import { buildSiteRemoval, newSitePath, removeSiteBranch } from "@/lib/v2/authorSite";
 
 /**
@@ -40,7 +40,7 @@ export function RemoveSiteDialog({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ number: number; url: string } | null>(null);
 
-  const effectiveToken = (token.trim() || connection?.token || "").trim();
+  const effectiveToken = resolveWriteToken(token, connection?.token);
   const confirmed = confirm.trim() === siteName;
   const canSubmit = !!connection && confirmed && !!effectiveToken && !submitting;
   const filePath = connection ? newSitePath(connection.workspace, siteName) : "";
@@ -155,7 +155,7 @@ export function RemoveSiteDialog({
                 />
               </Field>
 
-              {connection && !connection.token && (
+              {connection && !connection.token && !envWriteToken() && (
                 <Field
                   label="Write token"
                   hint="needs Contents + Pull requests: read & write. Held in memory for this submit only."
@@ -177,6 +177,13 @@ export function RemoveSiteDialog({
                 <p className="flex items-center gap-1.5 text-[11px] text-fg-subtle">
                   <KeyRound className="h-3 w-3" />
                   Using the connected token for this write.
+                </p>
+              )}
+
+              {connection && !connection.token && envWriteToken() && (
+                <p className="flex items-center gap-1.5 text-[11px] text-fg-subtle">
+                  <KeyRound className="h-3 w-3" />
+                  Using the local dev token (NEXT_PUBLIC_GH_TOKEN) for this write.
                 </p>
               )}
 

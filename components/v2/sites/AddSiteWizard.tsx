@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { useRepoConnection } from "@/store/useRepoConnection";
-import { writerFromConnection } from "@/lib/github/writeClient";
+import { writerFromConnection, resolveWriteToken, envWriteToken } from "@/lib/github/writeClient";
 import {
   buildSiteYaml,
   buildSiteFileChange,
@@ -71,7 +71,7 @@ export function AddSiteWizard({ onClose }: { onClose: () => void }) {
   const effectiveCluster = clusterTouched ? clusterName : defaultClusterName(name);
 
   const nameValid = isValidSiteName(name);
-  const effectiveToken = (token.trim() || connection?.token || "").trim();
+  const effectiveToken = resolveWriteToken(token, connection?.token);
   const canSubmit =
     !!connection && nameValid && !!inherits && !!environment.trim() && !!effectiveToken && !submitting;
 
@@ -270,7 +270,7 @@ export function AddSiteWizard({ onClose }: { onClose: () => void }) {
               </div>
 
               {/* Write token */}
-              {connection && !connection.token && (
+              {connection && !connection.token && !envWriteToken() && (
                 <Field
                   label="Write token"
                   hint="needs Contents + Pull requests: read & write. Held in memory for this submit only."
@@ -292,6 +292,13 @@ export function AddSiteWizard({ onClose }: { onClose: () => void }) {
                 <p className="flex items-center gap-1.5 text-[11px] text-fg-subtle">
                   <KeyRound className="h-3 w-3" />
                   Using the connected token for this write.
+                </p>
+              )}
+
+              {connection && !connection.token && envWriteToken() && (
+                <p className="flex items-center gap-1.5 text-[11px] text-fg-subtle">
+                  <KeyRound className="h-3 w-3" />
+                  Using the local dev token (NEXT_PUBLIC_GH_TOKEN) for this write.
                 </p>
               )}
 

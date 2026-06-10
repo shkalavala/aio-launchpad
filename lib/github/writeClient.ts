@@ -63,6 +63,34 @@ export function isWriteEnabled(): boolean {
   return getWriteConfig() !== null;
 }
 
+/**
+ * Dev-only convenience token from `NEXT_PUBLIC_GH_TOKEN`.
+ *
+ * This lets a local `next dev` session author real PRs without re-pasting a PAT
+ * per change, e.g. start the server with `NEXT_PUBLIC_GH_TOKEN=$(gh auth token)`
+ * so it reuses your already-authenticated gh CLI credential.
+ *
+ * SECURITY: `NEXT_PUBLIC_*` is inlined into the client bundle. ONLY set this for
+ * local development on a trusted machine. NEVER set it for the deployed (GitHub
+ * Pages) build or the token leaks publicly. CI does not set it, so the shipped
+ * site stays tokenless and read-only.
+ */
+export function envWriteToken(): string | undefined {
+  const t = process.env.NEXT_PUBLIC_GH_TOKEN;
+  return t && t.trim() ? t.trim() : undefined;
+}
+
+/**
+ * Resolve the effective write token from, in order: explicit per-form input,
+ * the connection's token, then the dev env token. Returns "" when none exist.
+ */
+export function resolveWriteToken(...candidates: (string | undefined)[]): string {
+  for (const c of candidates) {
+    if (c && c.trim()) return c.trim();
+  }
+  return envWriteToken() ?? "";
+}
+
 function b64encode(text: string): string {
   // UTF-8 safe base64 for the Git blob/Contents API.
   const bytes = new TextEncoder().encode(text);
@@ -283,9 +311,10 @@ export function writerFromConnection(conn: {
   branch: string;
   token?: string;
 }): GitHubWriter | null {
-  if (!conn.token) return null;
+  const token = resolveWriteToken(conn.token);
+  if (!token) return null;
   return new GitHubWriter(
     { owner: conn.owner, repo: conn.repo, branch: conn.branch },
-    { token: conn.token },
+    { token },
   );
 }
