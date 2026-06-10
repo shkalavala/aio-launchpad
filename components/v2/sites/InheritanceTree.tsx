@@ -105,13 +105,13 @@ function TemplateRow({
         className={cn("h-3.5 w-3.5 shrink-0 text-fg-subtle transition-transform", isOpen && "rotate-90")}
       />
       {region ? (
-        <MapPin className="h-3.5 w-3.5 shrink-0 text-accent" />
+        <MapPin className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />
       ) : (
-        <Layers className="h-3.5 w-3.5 shrink-0 text-accent" />
+        <Layers className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />
       )}
-      <span className="font-medium text-fg">{node.label}</span>
+      <span className="font-medium text-fg-muted">{node.label}</span>
       <Badge tone="neutral" className="shrink-0">
-        template
+        shared default
       </Badge>
       {region && <span className="font-mono text-[11px] text-fg-subtle">{region}</span>}
       {release && (
@@ -120,7 +120,7 @@ function TemplateRow({
         </span>
       )}
       <span className="ml-auto text-[11px] text-fg-subtle">
-        {siteCount} site{siteCount === 1 ? "" : "s"}
+        provides defaults to {siteCount} site{siteCount === 1 ? "" : "s"}
       </span>
     </button>
   );
@@ -218,7 +218,7 @@ export function InheritanceTree({ fleet }: { fleet: FleetSite[] }) {
   return (
     <div className="rounded-lg border border-border bg-surface p-2">
       <div className="px-2 pb-1.5 pt-1 text-[11px] text-fg-subtle">
-        Templates resolve top-down; each site inherits from the chain above it.
+        Shared defaults (muted) supply config a site can opt into; each site below inherits and may override them.
       </div>
       {roots.map((node) => (
         <Branch key={node.key} node={node} depth={0} expanded={expanded} onToggle={onToggle} />
