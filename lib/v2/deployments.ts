@@ -141,6 +141,18 @@ export const RECENT_DEPLOYMENTS: Deployment[] = [
     createdAt: "2026-06-07T10:02:00Z",
     requestedBy: "Jonas W.",
   },
+  {
+    id: "dep-1039",
+    title: "Upgrade Hamburg prod to 2606",
+    kind: "release-upgrade",
+    status: "failed",
+    commitSha: "staged",
+    scopeLabel: "Hamburg prod · 1",
+    changes: [{ siteName: "hamburg-assembly-prod", before: "2603", after: "2606" }],
+    createdAt: "2026-06-06T18:20:00Z",
+    requestedBy: "Magnus B.",
+    approvedBy: "Priya N.",
+  },
 ];
 
 export function shortId(): string {

@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
  */
 export function ConfigEditor({ fs }: { fs: FleetSite }) {
   const siteName = fs.site.name;
+  const advanced = useV2Store((s) => s.mode === "advanced");
   const staged = useV2Store((s) => s.configOverrides[siteName]);
   const stageConfigEdit = useV2Store((s) => s.stageConfigEdit);
   const discardPending = useV2Store((s) => s.discardPending);
@@ -39,6 +40,8 @@ export function ConfigEditor({ fs }: { fs: FleetSite }) {
   const live = useMemo(() => buildConfigPair(fs, staged), [fs, staged]);
 
   const stagedKeys = staged ? Object.keys(staged) : [];
+  const fields = EDITABLE_FIELDS.filter((f) => advanced || !f.advanced);
+  const hiddenAdvanced = EDITABLE_FIELDS.length - fields.length;
 
   function onEdit(field: EditableField, raw: unknown) {
     const before = getAtPath(committed.override, field.path);
@@ -86,7 +89,7 @@ export function ConfigEditor({ fs }: { fs: FleetSite }) {
             </p>
           </header>
           <div className="divide-y divide-border">
-            {EDITABLE_FIELDS.map((field) => {
+            {fields.map((field) => {
               const value = getAtPath(live.override, field.path);
               const inherited = getAtPath(committed.base, field.path);
               const isStaged = stagedKeys.includes(field.path);
@@ -110,6 +113,12 @@ export function ConfigEditor({ fs }: { fs: FleetSite }) {
               );
             })}
           </div>
+          {hiddenAdvanced > 0 && (
+            <div className="border-t border-border px-4 py-2 text-[11px] text-fg-subtle">
+              {hiddenAdvanced} advanced infra {hiddenAdvanced === 1 ? "field" : "fields"} hidden.
+              Switch to Advanced to tune broker and dataflow settings.
+            </div>
+          )}
         </section>
 
         {/* Live diff */}

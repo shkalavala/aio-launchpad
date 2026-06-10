@@ -11,6 +11,7 @@ import {
   ArrowRight,
   Check,
   Boxes,
+  RefreshCw,
 } from "lucide-react";
 import { PageHeader } from "@/components/v2/ui/PageHeader";
 import { useV2Fleet } from "@/lib/useV2Fleet";
@@ -26,6 +27,7 @@ import {
   statusMeta,
   type Deployment,
   type DeployKind,
+  type DeployStatus,
   type DeploymentSiteChange,
 } from "@/lib/v2/deployments";
 import type { AioReleaseId, FleetSite } from "@/lib/types";
@@ -42,23 +44,31 @@ export function DeploymentsView() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const advanced = useV2Store((s) => s.mode === "advanced");
 
-  function onExecute(d: Deployment) {
-    setDeployments((prev) => [d, ...prev]);
-    setWizardOpen(false);
-    // Walk the run through its lifecycle. When it was routed to the Approvals
-    // service it starts at "waiting-approval"; otherwise PR review + CI already
-    // gated it, so it starts at "submitted".
-    const stages = deployLifecycle(d.status === "waiting-approval");
-    stages.slice(1).forEach((status, i) => {
+  // Walk a run through the remaining lifecycle stages, one step at a time.
+  function runLifecycle(id: string, stages: DeployStatus[]) {
+    stages.forEach((status, i) => {
       setTimeout(
         () => {
-          setDeployments((prev) =>
-            prev.map((x) => (x.id === d.id ? { ...x, status } : x)),
-          );
+          setDeployments((prev) => prev.map((x) => (x.id === id ? { ...x, status } : x)));
         },
         (i + 1) * 1300,
       );
     });
+  }
+
+  function onExecute(d: Deployment) {
+    setDeployments((prev) => [d, ...prev]);
+    setWizardOpen(false);
+    // When routed to the Approvals service it starts at "waiting-approval";
+    // otherwise PR review + CI already gated it, so it starts at "submitted".
+    const stages = deployLifecycle(d.status === "waiting-approval");
+    runLifecycle(d.id, stages.slice(1));
+  }
+
+  // Retry a failed run: re-enter the pipeline (gates already passed) → done.
+  function onRetry(id: string) {
+    setDeployments((prev) => prev.map((x) => (x.id === id ? { ...x, status: "submitted" } : x)));
+    runLifecycle(id, ["deploying", "succeeded"]);
   }
 
   return (
@@ -89,7 +99,7 @@ export function DeploymentsView() {
           </thead>
           <tbody className="divide-y divide-border">
             {deployments.map((d) => (
-              <DeploymentRow key={d.id} d={d} advanced={advanced} />
+              <DeploymentRow key={d.id} d={d} advanced={advanced} onRetry={onRetry} />
             ))}
           </tbody>
         </table>
@@ -102,7 +112,15 @@ export function DeploymentsView() {
   );
 }
 
-function DeploymentRow({ d, advanced }: { d: Deployment; advanced: boolean }) {
+function DeploymentRow({
+  d,
+  advanced,
+  onRetry,
+}: {
+  d: Deployment;
+  advanced: boolean;
+  onRetry: (id: string) => void;
+}) {
   const status = statusMeta(d.status);
   const isRollback = d.kind === "rollback";
   const isSolution = d.kind === "solution-deploy";
@@ -129,7 +147,19 @@ function DeploymentRow({ d, advanced }: { d: Deployment; advanced: boolean }) {
         </span>
       </td>
       <td className="px-4 py-2.5">
-        <Badge tone={status.tone}>{status.label}</Badge>
+        <div className="flex items-center gap-2">
+          <Badge tone={status.tone}>{status.label}</Badge>
+          {d.status === "failed" && (
+            <button
+              type="button"
+              onClick={() => onRetry(d.id)}
+              className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[11px] text-fg-muted hover:border-accent/50 hover:text-accent"
+            >
+              <RefreshCw className="h-3 w-3" />
+              Retry
+            </button>
+          )}
+        </div>
       </td>
       {advanced && (
         <td className="px-4 py-2.5 text-[12px] text-fg-muted">

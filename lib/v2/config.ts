@@ -129,13 +129,15 @@ export interface EditableField {
   label: string;
   kind: "number" | "boolean" | "enum";
   options?: string[];
+  /** Infra-tuning knobs shown only in Advanced mode. */
+  advanced?: boolean;
 }
 
 export const EDITABLE_FIELDS: EditableField[] = [
   { path: "aioRelease", label: "AIO release", kind: "enum", options: ["2512", "2602", "2603", "2604", "2605", "2606"] },
-  { path: "brokerConfig.replicas", label: "Broker replicas", kind: "number" },
-  { path: "brokerConfig.memoryProfile", label: "Broker memory profile", kind: "enum", options: ["Low", "Medium", "High"] },
-  { path: "defaultDataflowInstanceCount", label: "Dataflow instance count", kind: "number" },
+  { path: "brokerConfig.replicas", label: "Broker replicas", kind: "number", advanced: true },
+  { path: "brokerConfig.memoryProfile", label: "Broker memory profile", kind: "enum", options: ["Low", "Medium", "High"], advanced: true },
+  { path: "defaultDataflowInstanceCount", label: "Dataflow instance count", kind: "number", advanced: true },
   { path: "deployOptions.enableSecretSync", label: "Secret sync", kind: "boolean" },
 ];
 

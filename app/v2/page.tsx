@@ -10,6 +10,7 @@ import {
   Rocket,
   RotateCcw,
   ArrowRight,
+  Server,
 } from "lucide-react";
 import { PageHeader } from "@/components/v2/ui/PageHeader";
 import { useV2Fleet } from "@/lib/useV2Fleet";
@@ -17,11 +18,13 @@ import { useV2Store, selectChangeState } from "@/store/useV2Store";
 import { shortSha } from "@/lib/git/fixtures";
 import { ChangeStatePill } from "@/components/v2/shell/ChangeStatePill";
 import { RECENT_DEPLOYMENTS, statusMeta } from "@/lib/v2/deployments";
+import { clusterInfo } from "@/lib/v2/format";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 
 export default function V2DashboardPage() {
   const fleet = useV2Fleet();
+  const advanced = useV2Store((s) => s.mode === "advanced");
   const repo = useV2Store((s) => s.repo);
   const state = useV2Store(selectChangeState);
   const pendingCount = useV2Store((s) => s.pendingChanges.length);
@@ -42,6 +45,14 @@ export default function V2DashboardPage() {
   }
   const releases = Array.from(releaseDist.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   const maxRelease = Math.max(...releases.map(([, n]) => n), 1);
+
+  const clusterDist = new Map<string, number>();
+  for (const s of fleet) {
+    const distro = clusterInfo(s).distro;
+    clusterDist.set(distro, (clusterDist.get(distro) ?? 0) + 1);
+  }
+  const clusters = Array.from(clusterDist.entries()).sort((a, b) => b[1] - a[1]);
+  const maxCluster = Math.max(...clusters.map(([, n]) => n), 1);
 
   return (
     <div className="px-6 py-5">
@@ -145,6 +156,31 @@ export default function V2DashboardPage() {
           </div>
         </Panel>
       </div>
+
+      {/* Advanced-only: cluster distribution */}
+      {advanced && (
+        <Panel
+          title="Cluster distribution"
+          icon={<Server className="h-4 w-4" />}
+          className="mt-4"
+          action={<span className="text-[12px] text-fg-subtle">Advanced</span>}
+        >
+          <div className="space-y-1.5">
+            {clusters.map(([distro, n]) => (
+              <div key={distro} className="flex items-center gap-2 text-[12px]">
+                <span className="w-40 truncate text-fg">{distro}</span>
+                <div className="h-3 flex-1 overflow-hidden rounded bg-bg-subtle">
+                  <div
+                    className="h-full rounded bg-accent"
+                    style={{ width: `${(n / maxCluster) * 100}%` }}
+                  />
+                </div>
+                <span className="w-5 text-right text-fg-muted">{n}</span>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
 
       {/* Incoming summary */}
       {incoming.length > 0 && (
