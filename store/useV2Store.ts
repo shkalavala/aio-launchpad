@@ -24,6 +24,20 @@ function genSha(): string {
   return Math.random().toString(16).slice(2, 9);
 }
 
+let reconcileCounter = 0;
+
+/**
+ * A queued reconcile: git-ahead drift the operator chose to re-apply. The
+ * store records the request; the Deployments view consumes it, turns it into a
+ * real reconcile deployment, and runs its lifecycle.
+ */
+export interface ReconcileRequest {
+  id: string;
+  siteName: string;
+  fields: PendingField[];
+  commitSha: string;
+}
+
 interface StageEditArgs {
   siteName: string;
   /** Repo-relative file path the edit lands in. */
@@ -51,6 +65,8 @@ interface V2State {
   driftRecords: DriftRecord[];
   /** Drift is computed on demand — nothing shows until a check has been run. */
   driftChecked: boolean;
+  /** Git-ahead drift the operator queued for a reconcile deployment. */
+  reconcileRequests: ReconcileRequest[];
   /** Per-site staged field overrides, keyed by site then dotted path. */
   configOverrides: Record<string, Record<string, unknown>>;
 
@@ -73,6 +89,10 @@ interface V2State {
   // ── Drift (on-demand) ───────────────────────────────────────────────────
   runDriftCheck: () => void;
   resolveDrift: (siteName: string) => void;
+  /** Queue a git-ahead drift to be re-applied as a reconcile deployment. */
+  reconcileDrift: (siteName: string) => void;
+  /** Deployments view calls this once it has turned a request into a run. */
+  clearReconcileRequest: (id: string) => void;
 
   // ── Demo reset ──────────────────────────────────────────────────────────
   resetGitState: () => void;
@@ -86,6 +106,7 @@ function freshGitState() {
     incomingChanges: INCOMING_CHANGES.map((c) => ({ ...c })),
     driftRecords: DRIFT_RECORDS.map((d) => ({ ...d })),
     driftChecked: false,
+    reconcileRequests: [] as ReconcileRequest[],
     configOverrides: {} as Record<string, Record<string, unknown>>,
   };
 }
@@ -250,6 +271,24 @@ export const useV2Store = create<V2State>()(
 
       resolveDrift: (siteName) =>
         set({ driftRecords: get().driftRecords.filter((d) => d.siteName !== siteName) }),
+
+      reconcileDrift: (siteName) => {
+        const record = get().driftRecords.find((d) => d.siteName === siteName);
+        if (!record) return;
+        const req: ReconcileRequest = {
+          id: `reconcile-${++reconcileCounter}-${genSha()}`,
+          siteName,
+          fields: record.fields,
+          commitSha: get().repo.lastCommit.sha,
+        };
+        set({
+          reconcileRequests: [...get().reconcileRequests, req],
+          driftRecords: get().driftRecords.filter((d) => d.siteName !== siteName),
+        });
+      },
+
+      clearReconcileRequest: (id) =>
+        set({ reconcileRequests: get().reconcileRequests.filter((r) => r.id !== id) }),
 
       resetGitState: () => set(freshGitState()),
     }),

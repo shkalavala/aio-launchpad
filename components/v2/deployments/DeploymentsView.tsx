@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Rocket,
   RotateCcw,
@@ -47,6 +47,9 @@ export function DeploymentsView() {
   const [deployments, setDeployments] = useState<Deployment[]>(RECENT_DEPLOYMENTS);
   const [wizardOpen, setWizardOpen] = useState(false);
   const advanced = useV2Store((s) => s.mode === "advanced");
+  const reconcileRequests = useV2Store((s) => s.reconcileRequests);
+  const clearReconcileRequest = useV2Store((s) => s.clearReconcileRequest);
+  const handledReconciles = useRef<Set<string>>(new Set());
 
   // Walk a run through the remaining lifecycle stages, one step at a time.
   function runLifecycle(id: string, stages: DeployStatus[]) {
@@ -74,6 +77,31 @@ export function DeploymentsView() {
     setDeployments((prev) => prev.map((x) => (x.id === id ? { ...x, status: "submitted" } : x)));
     runLifecycle(id, ["deploying", "succeeded"]);
   }
+
+  // A git-ahead drift the operator queued from the change flyout becomes a
+  // real reconcile deployment here: re-apply git's commit to the drifted site.
+  useEffect(() => {
+    for (const req of reconcileRequests) {
+      if (handledReconciles.current.has(req.id)) continue;
+      handledReconciles.current.add(req.id);
+      const id = `dep-${shortId()}`;
+      const dep: Deployment = {
+        id,
+        title: `Reconcile ${req.siteName} to git`,
+        kind: "reconcile",
+        status: "submitted",
+        commitSha: req.commitSha,
+        scopeLabel: "1 site",
+        changes: [{ siteName: req.siteName }],
+        createdAt: new Date().toISOString(),
+        requestedBy: "You",
+      };
+      setDeployments((prev) => [dep, ...prev]);
+      runLifecycle(id, ["deploying", "succeeded"]);
+      clearReconcileRequest(req.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reconcileRequests]);
 
   return (
     <div className="px-6 py-5">
@@ -129,6 +157,7 @@ function DeploymentRow({
   const isRollback = d.kind === "rollback";
   const isSolution = d.kind === "solution-deploy";
   const isPatch = d.kind === "config-apply";
+  const isReconcile = d.kind === "reconcile";
   return (
     <tr className="hover:bg-bg-subtle/60">
       <td className="px-4 py-2.5">
@@ -137,6 +166,8 @@ function DeploymentRow({
             <RotateCcw className="h-4 w-4 text-warning" />
           ) : isSolution ? (
             <Boxes className="h-4 w-4 text-accent" />
+          ) : isReconcile ? (
+            <RefreshCw className="h-4 w-4 text-warning" />
           ) : isPatch ? (
             <SlidersHorizontal className="h-4 w-4 text-accent" />
           ) : (

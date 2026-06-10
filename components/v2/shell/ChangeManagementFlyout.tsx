@@ -282,6 +282,8 @@ function DriftSection() {
 
 function DriftRow({ record }: { record: DriftRecord }) {
   const resolveDrift = useV2Store((s) => s.resolveDrift);
+  const reconcileDrift = useV2Store((s) => s.reconcileDrift);
+  const gitAhead = record.direction === "git-ahead";
   return (
     <div className="rounded-md border border-danger/40 bg-danger/5 p-2.5 text-[12px]">
       <div className="flex items-center justify-between">
@@ -295,10 +297,22 @@ function DriftRow({ record }: { record: DriftRecord }) {
           <FieldDelta key={f.key} fieldKey={f.key} before={f.before} after={f.after} />
         ))}
       </div>
-      <div className="mt-2">
-        <Button size="sm" variant="default" onClick={() => resolveDrift(record.siteName)}>
-          Capture to git
-        </Button>
+      <div className="mt-2 flex items-center gap-2">
+        {gitAhead ? (
+          <>
+            <Button size="sm" variant="default" onClick={() => reconcileDrift(record.siteName)}>
+              Reconcile to git
+            </Button>
+            <span className="text-[11px] text-fg-subtle">re-applies git via a deployment</span>
+          </>
+        ) : (
+          <>
+            <Button size="sm" variant="default" onClick={() => resolveDrift(record.siteName)}>
+              Capture to git
+            </Button>
+            <span className="text-[11px] text-fg-subtle">commits the running state</span>
+          </>
+        )}
       </div>
     </div>
   );

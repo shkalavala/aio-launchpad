@@ -2,7 +2,12 @@ import type { Tone } from "@/lib/v2/format";
 import type { PendingChange } from "@/lib/git/model";
 import { fieldByPath } from "@/lib/v2/config";
 
-export type DeployKind = "release-upgrade" | "config-apply" | "rollback" | "solution-deploy";
+export type DeployKind =
+  | "release-upgrade"
+  | "config-apply"
+  | "rollback"
+  | "solution-deploy"
+  | "reconcile";
 export type DeployStatus =
   | "waiting-approval"
   | "submitted"
@@ -37,6 +42,7 @@ export const KIND_META: Record<DeployKind, { label: string }> = {
   "config-apply": { label: "Config apply" },
   rollback: { label: "Rollback" },
   "solution-deploy": { label: "Solution deploy" },
+  reconcile: { label: "Reconcile" },
 };
 
 export function statusMeta(s: DeployStatus): { label: string; tone: Tone } {

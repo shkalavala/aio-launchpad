@@ -68,6 +68,12 @@ export const DRIFT_RECORDS: DriftRecord[] = [
     fields: [{ key: "parameters.dataflowProfile.instanceCount", before: 1, after: 2 }],
     detectedAt: "2026-06-09T07:55:00Z",
   },
+  {
+    siteName: "stockholm-assembly-prod",
+    direction: "git-ahead",
+    fields: [{ key: "deployOptions.enableSecretSync", before: false, after: true }],
+    detectedAt: "2026-06-09T08:10:00Z",
+  },
 ];
 
 /** Convenience set of site names currently in a drift state. */
