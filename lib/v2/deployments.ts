@@ -17,6 +17,60 @@ export type DeployStatus =
   | "succeeded"
   | "failed";
 
+/**
+ * Approval is enforced OUT-OF-BAND: Launchpad only *requests* it and *observes*
+ * the status read back from the Approvals service. The AIO operator on the
+ * cluster validates the token presented on the change and applies (or rejects)
+ * it. Launchpad never grants approval itself — there is no in-app Approve
+ * action. This is the honest read-back lifecycle.
+ */
+export type ApprovalStatus =
+  | "requested" // request sent to the Approvals service
+  | "submitted" // submitted to ARM
+  | "reached-cluster" // change reached the cluster
+  | "operator-validated" // AIO operator validated the token on the cluster
+  | "applied" // applied on the cluster
+  | "rejected"; // operator rejected the change
+
+export interface ApprovalState {
+  /** Approver, group, or service the request was routed to. */
+  routedTo: string;
+  status: ApprovalStatus;
+  requestedAt: string;
+  updatedAt: string;
+}
+
+/** Ordered OOB approval read-back stages (terminal: applied | rejected). */
+export const APPROVAL_STAGES: ApprovalStatus[] = [
+  "requested",
+  "submitted",
+  "reached-cluster",
+  "operator-validated",
+  "applied",
+];
+
+export function approvalMeta(s: ApprovalStatus): { label: string; tone: Tone } {
+  switch (s) {
+    case "requested":
+      return { label: "Requested", tone: "warning" };
+    case "submitted":
+      return { label: "Submitted to ARM", tone: "accent" };
+    case "reached-cluster":
+      return { label: "Reached cluster", tone: "accent" };
+    case "operator-validated":
+      return { label: "Operator validated", tone: "accent" };
+    case "applied":
+      return { label: "Applied", tone: "success" };
+    case "rejected":
+      return { label: "Rejected", tone: "danger" };
+  }
+}
+
+/** Whether an approval is still open (not yet applied or rejected). */
+export function approvalPending(s: ApprovalStatus): boolean {
+  return s !== "applied" && s !== "rejected";
+}
+
 export interface DeploymentSiteChange {
   siteName: string;
   before?: string;
@@ -34,7 +88,10 @@ export interface Deployment {
   changes: DeploymentSiteChange[];
   createdAt: string;
   requestedBy: string;
+  /** Operator who validated a past run (audit fact, not an in-app action). */
   approvedBy?: string;
+  /** Live OOB approval read-back, present only when routed to the Approvals service. */
+  approval?: ApprovalState;
 }
 
 export const KIND_META: Record<DeployKind, { label: string }> = {
@@ -190,6 +247,41 @@ export function pendingChangesToPatches(pending: PendingChange[]): ConfigPatch[]
 
 /** Recent deployment history seed. */
 export const RECENT_DEPLOYMENTS: Deployment[] = [
+  {
+    id: "dep-1045",
+    title: "Apply secret-sync to Gothenburg prod",
+    kind: "config-apply",
+    status: "waiting-approval",
+    commitSha: "a1b9f3c",
+    scopeLabel: "Gothenburg prod · 2",
+    changes: [
+      { siteName: "gothenburg-cutting-prod", before: "off", after: "on" },
+      { siteName: "gothenburg-assembly-prod", before: "off", after: "on" },
+    ],
+    createdAt: "2026-06-10T07:55:00Z",
+    requestedBy: "Magnus B.",
+    approval: {
+      routedTo: "ot-prod-approvers",
+      status: "reached-cluster",
+      requestedAt: "2026-06-10T07:55:00Z",
+      updatedAt: "2026-06-10T08:06:00Z",
+    },
+  },
+  {
+    id: "dep-1044",
+    title: "Upgrade Stockholm prod to 2606",
+    kind: "release-upgrade",
+    status: "deploying",
+    commitSha: "f30c7a2",
+    scopeLabel: "Stockholm prod · 2",
+    changes: [
+      { siteName: "stockholm-assembly-prod", before: "2605", after: "2606" },
+      { siteName: "stockholm-bar-prod", before: "2605", after: "2606" },
+    ],
+    createdAt: "2026-06-10T08:02:00Z",
+    requestedBy: "Priya N.",
+    approvedBy: "Jonas W.",
+  },
   {
     id: "dep-1043",
     title: "Deploy OPC UA connector to dev sites",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Rocket,
   RotateCcw,
@@ -24,14 +24,12 @@ import {
   COMMIT_HISTORY,
   CONFIG_PATCHES,
   KIND_META,
-  RECENT_DEPLOYMENTS,
-  deployLifecycle,
+  approvalMeta,
   pendingChangesToPatches,
   shortId,
   statusMeta,
   type Deployment,
   type DeployKind,
-  type DeployStatus,
   type DeploymentSiteChange,
 } from "@/lib/v2/deployments";
 import type { AioReleaseId, FleetSite } from "@/lib/types";
@@ -44,52 +42,16 @@ import { cn } from "@/lib/utils";
 const RELEASES: AioReleaseId[] = ["2602", "2603", "2604", "2605", "2606"];
 
 export function DeploymentsView() {
-  const [deployments, setDeployments] = useState<Deployment[]>(RECENT_DEPLOYMENTS);
   const [wizardOpen, setWizardOpen] = useState(false);
   const advanced = useV2Store((s) => s.mode === "advanced");
-  const queuedDeployments = useV2Store((s) => s.queuedDeployments);
-  const dequeueDeployment = useV2Store((s) => s.dequeueDeployment);
-  const handledQueued = useRef<Set<string>>(new Set());
-
-  // Walk a run through the remaining lifecycle stages, one step at a time.
-  function runLifecycle(id: string, stages: DeployStatus[]) {
-    stages.forEach((status, i) => {
-      setTimeout(
-        () => {
-          setDeployments((prev) => prev.map((x) => (x.id === id ? { ...x, status } : x)));
-        },
-        (i + 1) * 1300,
-      );
-    });
-  }
+  const deployments = useV2Store((s) => s.deployments);
+  const startDeployment = useV2Store((s) => s.startDeployment);
+  const retryDeployment = useV2Store((s) => s.retryDeployment);
 
   function onExecute(d: Deployment) {
-    setDeployments((prev) => [d, ...prev]);
+    startDeployment(d);
     setWizardOpen(false);
-    // When routed to the Approvals service it starts at "waiting-approval";
-    // otherwise PR review + CI already gated it, so it starts at "submitted".
-    const stages = deployLifecycle(d.status === "waiting-approval");
-    runLifecycle(d.id, stages.slice(1));
   }
-
-  // Retry a failed run: re-enter the pipeline (gates already passed) → done.
-  function onRetry(id: string) {
-    setDeployments((prev) => prev.map((x) => (x.id === id ? { ...x, status: "submitted" } : x)));
-    runLifecycle(id, ["deploying", "succeeded"]);
-  }
-
-  // A deployment queued from elsewhere (drift reconcile, cert rotation) is
-  // picked up here, rendered, and walked through its pipeline lifecycle.
-  useEffect(() => {
-    for (const dep of queuedDeployments) {
-      if (handledQueued.current.has(dep.id)) continue;
-      handledQueued.current.add(dep.id);
-      setDeployments((prev) => [dep, ...prev]);
-      runLifecycle(dep.id, ["deploying", "succeeded"]);
-      dequeueDeployment(dep.id);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queuedDeployments]);
 
   return (
     <div className="px-6 py-5">
@@ -119,7 +81,7 @@ export function DeploymentsView() {
           </thead>
           <tbody className="divide-y divide-border">
             {deployments.map((d) => (
-              <DeploymentRow key={d.id} d={d} advanced={advanced} onRetry={onRetry} />
+              <DeploymentRow key={d.id} d={d} advanced={advanced} onRetry={retryDeployment} />
             ))}
           </tbody>
         </table>
@@ -190,9 +152,14 @@ function DeploymentRow({
       {advanced && (
         <td className="px-4 py-2.5 text-[12px] text-fg-muted">
           <span className="text-fg">{d.requestedBy}</span>
-          {d.approvedBy && (
+          {d.approval ? (
+            <span className="text-fg-subtle">
+              {" "}
+              → {d.approval.routedTo} · {approvalMeta(d.approval.status).label}
+            </span>
+          ) : d.approvedBy ? (
             <span className="text-fg-subtle"> → {d.approvedBy}</span>
-          )}
+          ) : null}
         </td>
       )}
       <td className="px-4 py-2.5 text-[12px] text-fg-subtle">{relTime(d.createdAt)}</td>
@@ -299,7 +266,14 @@ function NewDeploymentWizard({
       changes,
       createdAt: new Date().toISOString(),
       requestedBy: "You",
-      approvedBy: useApprovals ? approver.trim() : undefined,
+      approval: useApprovals
+        ? {
+            routedTo: approver.trim(),
+            status: "requested",
+            requestedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }
+        : undefined,
     });
   }
 
@@ -498,7 +472,7 @@ function NewDeploymentWizard({
                 checked={useApprovals}
                 onChange={(e) => setUseApprovals(e.target.checked)}
               />
-              Require sign-off from the Approvals service
+              Route through the Approvals service
               <Badge tone="accent" className="text-[10px]">
                 preview
               </Badge>
@@ -511,13 +485,21 @@ function NewDeploymentWizard({
                   onChange={(e) => setApprover(e.target.value)}
                   className="w-full"
                 />
+                <p className="text-[11px] text-fg-muted">
+                  Launchpad only <span className="text-fg">requests</span> approval and reads back
+                  status. The AIO operator validates the token on the cluster and applies the
+                  change — Launchpad never approves it here.
+                </p>
                 <ol className="space-y-1 text-[11px] text-fg-muted">
-                  <li>1. Waiting on approval (request sent to Approvals service)</li>
-                  <li>2. Approval received</li>
-                  <li>3. Submitted to pipeline (ADO / GitHub Actions)</li>
-                  <li>4. Deploying</li>
-                  <li>5. Done</li>
+                  <li>1. Requested (sent to Approvals service)</li>
+                  <li>2. Submitted to ARM</li>
+                  <li>3. Reached cluster</li>
+                  <li>4. Operator validated token</li>
+                  <li>5. Applied (or rejected)</li>
                 </ol>
+                <p className="text-[11px] text-fg-subtle">
+                  Track live status on the Operations page.
+                </p>
               </div>
             )}
           </WizStep>

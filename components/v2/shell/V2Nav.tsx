@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Network, Rocket, SlidersHorizontal, KeyRound } from "lucide-react";
+import { LayoutDashboard, Network, Rocket, SlidersHorizontal, KeyRound, Activity } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +32,12 @@ const NAV: NavItem[] = [
     label: "Deployments",
     icon: Rocket,
     match: (p) => p.startsWith("/v2/deployments"),
+  },
+  {
+    href: "/v2/operations",
+    label: "Operations",
+    icon: Activity,
+    match: (p) => p.startsWith("/v2/operations"),
   },
   {
     href: "/v2/configurations",

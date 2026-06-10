@@ -12,8 +12,8 @@ import type {
   RepoState,
 } from "@/lib/git/model";
 import { V2_REPO, INCOMING_CHANGES, DRIFT_RECORDS } from "@/lib/git/fixtures";
-import type { Deployment } from "@/lib/v2/deployments";
-import { shortId } from "@/lib/v2/deployments";
+import type { Deployment, DeployStatus, ApprovalStatus } from "@/lib/v2/deployments";
+import { shortId, RECENT_DEPLOYMENTS } from "@/lib/v2/deployments";
 
 export const V2_PERSIST_KEY = "aio-launchpad-v2-store";
 
@@ -24,6 +24,49 @@ let prCounter = 41;
 
 function genSha(): string {
   return Math.random().toString(16).slice(2, 9);
+}
+
+/** One demo lifecycle step. */
+const STEP_MS = 1300;
+
+type SetFn = (partial: Partial<V2State> | ((s: V2State) => Partial<V2State>)) => void;
+
+function setStatus(set: SetFn, id: string, status: DeployStatus) {
+  set((s) => ({ deployments: s.deployments.map((d) => (d.id === id ? { ...d, status } : d)) }));
+}
+
+function setApproval(set: SetFn, id: string, status: ApprovalStatus) {
+  set((s) => ({
+    deployments: s.deployments.map((d) =>
+      d.id === id && d.approval
+        ? { ...d, approval: { ...d.approval, status, updatedAt: new Date().toISOString() } }
+        : d,
+    ),
+  }));
+}
+
+/**
+ * Schedule a run's lifecycle. When routed through approvals, walk the honest
+ * OOB read-back (requested -> submitted -> reached-cluster -> operator-validated
+ * -> applied); the pipeline flips to deploying once the operator validates and
+ * to succeeded once applied. Otherwise PR + CI already gated it, so the pipeline
+ * just runs (deploying -> succeeded).
+ */
+function scheduleLifecycle(set: SetFn, dep: Deployment) {
+  if (dep.approval) {
+    const stages: ApprovalStatus[] = ["submitted", "reached-cluster", "operator-validated", "applied"];
+    stages.forEach((status, i) => {
+      setTimeout(() => {
+        setApproval(set, dep.id, status);
+        if (status === "operator-validated") setStatus(set, dep.id, "deploying");
+        if (status === "applied") setStatus(set, dep.id, "succeeded");
+      }, (i + 1) * STEP_MS);
+    });
+  } else {
+    (["deploying", "succeeded"] as DeployStatus[]).forEach((status, i) => {
+      setTimeout(() => setStatus(set, dep.id, status), (i + 1) * STEP_MS);
+    });
+  }
 }
 
 
@@ -55,11 +98,13 @@ interface V2State {
   /** Drift is computed on demand — nothing shows until a check has been run. */
   driftChecked: boolean;
   /**
-   * Deployments queued from elsewhere in the app (drift reconcile, cert
-   * rotation). The Deployments view drains this, renders each run, and walks
-   * its lifecycle.
+   * Every deployment run, newest first. Lifted into the store so both the
+   * Deployments view (where runs are started) and the Operations view (day-2
+   * mission control that observes them) read the same source of truth. Runs
+   * advance through their lifecycle via store-scheduled timers, so progress
+   * continues even as you move between those pages.
    */
-  queuedDeployments: Deployment[];
+  deployments: Deployment[];
   /** Per-site staged field overrides, keyed by site then dotted path. */
   configOverrides: Record<string, Record<string, unknown>>;
 
@@ -85,11 +130,16 @@ interface V2State {
   /** Queue a git-ahead drift to be re-applied as a reconcile deployment. */
   reconcileDrift: (siteName: string) => void;
 
-  // ── Queued deployments (consumed by the Deployments view) ──────────────────
-  /** Push a fully-formed deployment for the Deployments view to run. */
+  // ── Deployment runs (observed by Deployments + Operations) ────────────────
+  /** Start a run: prepend it and schedule its lifecycle (pipeline + optional OOB approval read-back). */
+  startDeployment: (dep: Deployment) => void;
+  /** Retry a failed run — re-enter the pipeline (gates already passed). */
+  retryDeployment: (id: string) => void;
+  /**
+   * Queue a fully-formed run from elsewhere (drift reconcile, cert rotation).
+   * Alias of startDeployment so those surfaces don't depend on scheduling.
+   */
   queueDeployment: (dep: Deployment) => void;
-  /** Deployments view calls this once it has picked up a queued run. */
-  dequeueDeployment: (id: string) => void;
 
   // ── Demo reset ──────────────────────────────────────────────────────────
   resetGitState: () => void;
@@ -103,7 +153,7 @@ function freshGitState() {
     incomingChanges: INCOMING_CHANGES.map((c) => ({ ...c })),
     driftRecords: DRIFT_RECORDS.map((d) => ({ ...d })),
     driftChecked: false,
-    queuedDeployments: [] as Deployment[],
+    deployments: RECENT_DEPLOYMENTS.map((d) => ({ ...d })),
     configOverrides: {} as Record<string, Record<string, unknown>>,
   };
 }
@@ -283,17 +333,22 @@ export const useV2Store = create<V2State>()(
           createdAt: new Date().toISOString(),
           requestedBy: "You",
         };
-        set({
-          queuedDeployments: [...get().queuedDeployments, dep],
-          driftRecords: get().driftRecords.filter((d) => d.siteName !== siteName),
-        });
+        set({ driftRecords: get().driftRecords.filter((d) => d.siteName !== siteName) });
+        get().startDeployment(dep);
       },
 
-      queueDeployment: (dep) =>
-        set({ queuedDeployments: [...get().queuedDeployments, dep] }),
+      startDeployment: (dep) => {
+        set((s) => ({ deployments: [dep, ...s.deployments] }));
+        scheduleLifecycle(set, dep);
+      },
 
-      dequeueDeployment: (id) =>
-        set({ queuedDeployments: get().queuedDeployments.filter((d) => d.id !== id) }),
+      retryDeployment: (id) => {
+        setStatus(set, id, "submitted");
+        setTimeout(() => setStatus(set, id, "deploying"), STEP_MS);
+        setTimeout(() => setStatus(set, id, "succeeded"), STEP_MS * 2);
+      },
+
+      queueDeployment: (dep) => get().startDeployment(dep),
 
       resetGitState: () => set(freshGitState()),
     }),
