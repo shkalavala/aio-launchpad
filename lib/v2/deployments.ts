@@ -1,7 +1,14 @@
 import type { Tone } from "@/lib/v2/format";
 
 export type DeployKind = "release-upgrade" | "config-apply" | "rollback" | "solution-deploy";
-export type DeployStatus = "succeeded" | "in-progress" | "queued" | "failed";
+export type DeployStatus =
+  | "waiting-approval"
+  | "submitted"
+  | "deploying"
+  | "in-progress"
+  | "queued"
+  | "succeeded"
+  | "failed";
 
 export interface DeploymentSiteChange {
   siteName: string;
@@ -32,6 +39,12 @@ export const KIND_META: Record<DeployKind, { label: string }> = {
 
 export function statusMeta(s: DeployStatus): { label: string; tone: Tone } {
   switch (s) {
+    case "waiting-approval":
+      return { label: "Waiting on approval", tone: "warning" };
+    case "submitted":
+      return { label: "Submitted to pipeline", tone: "accent" };
+    case "deploying":
+      return { label: "Deploying", tone: "accent" };
     case "succeeded":
       return { label: "Succeeded", tone: "success" };
     case "in-progress":
@@ -41,6 +54,16 @@ export function statusMeta(s: DeployStatus): { label: string; tone: Tone } {
     case "failed":
       return { label: "Failed", tone: "danger" };
   }
+}
+
+/**
+ * Ordered lifecycle a deployment moves through. When it is routed to the
+ * Approvals service the run starts at `waiting-approval`; otherwise PR review +
+ * CI already gated it, so it starts at `submitted`.
+ */
+export function deployLifecycle(requiresApproval: boolean): DeployStatus[] {
+  const tail: DeployStatus[] = ["submitted", "deploying", "succeeded"];
+  return requiresApproval ? ["waiting-approval", ...tail] : tail;
 }
 
 /** Prior commits available as rollback targets (mocked history). */

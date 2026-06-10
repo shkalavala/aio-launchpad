@@ -21,6 +21,7 @@ import {
   COMMIT_HISTORY,
   KIND_META,
   RECENT_DEPLOYMENTS,
+  deployLifecycle,
   shortId,
   statusMeta,
   type Deployment,
@@ -44,12 +45,20 @@ export function DeploymentsView() {
   function onExecute(d: Deployment) {
     setDeployments((prev) => [d, ...prev]);
     setWizardOpen(false);
-    // Simulate the pipeline completing.
-    setTimeout(() => {
-      setDeployments((prev) =>
-        prev.map((x) => (x.id === d.id ? { ...x, status: "succeeded" } : x)),
+    // Walk the run through its lifecycle. When it was routed to the Approvals
+    // service it starts at "waiting-approval"; otherwise PR review + CI already
+    // gated it, so it starts at "submitted".
+    const stages = deployLifecycle(d.status === "waiting-approval");
+    stages.slice(1).forEach((status, i) => {
+      setTimeout(
+        () => {
+          setDeployments((prev) =>
+            prev.map((x) => (x.id === d.id ? { ...x, status } : x)),
+          );
+        },
+        (i + 1) * 1300,
       );
-    }, 1400);
+    });
   }
 
   return (
@@ -145,15 +154,14 @@ function NewDeploymentWizard({
   onExecute: (d: Deployment) => void;
 }) {
   const fleet = useV2Fleet();
-  const mode = useV2Store((s) => s.mode);
 
   const [kind, setKind] = useState<DeployKind>("release-upgrade");
   const [targetRelease, setTargetRelease] = useState<AioReleaseId>("2606");
   const [commitSha, setCommitSha] = useState(COMMIT_HISTORY[0].sha);
   const [solutionId, setSolutionId] = useState(SOLUTIONS[0].id);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [useApprovals, setUseApprovals] = useState(false);
   const [approver, setApprover] = useState("");
-  const [approved, setApproved] = useState(false);
 
   const solution = SOLUTIONS.find((s) => s.id === solutionId) ?? SOLUTIONS[0];
 
@@ -187,7 +195,7 @@ function NewDeploymentWizard({
       });
   }, [fleet, selected, kind, targetRelease, commitSha, solution]);
 
-  const approvalOk = mode === "basic" || (approved && approver.trim().length > 0);
+  const approvalOk = !useApprovals || approver.trim().length > 0;
   const canExecute = selected.size > 0 && approvalOk;
 
   function execute() {
@@ -203,13 +211,13 @@ function NewDeploymentWizard({
       id: `dep-${shortId()}`,
       title,
       kind,
-      status: "in-progress",
+      status: useApprovals ? "waiting-approval" : "submitted",
       commitSha: kind === "rollback" ? commitSha : "staged",
       scopeLabel: `${selected.size} site${selected.size === 1 ? "" : "s"}`,
       changes,
       createdAt: new Date().toISOString(),
       requestedBy: "You",
-      approvedBy: mode === "advanced" ? approver.trim() : undefined,
+      approvedBy: useApprovals ? approver.trim() : undefined,
     });
   }
 
@@ -349,33 +357,39 @@ function NewDeploymentWizard({
             )}
           </WizStep>
 
-          {/* Approval */}
-          <WizStep n={5} label="Approval gate">
-            {mode === "basic" ? (
-              <p className="flex items-start gap-2 rounded-md border border-border bg-bg-subtle p-2.5 text-[12px] text-fg-muted">
-                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                This run goes through your repo&apos;s PR review and CI pipeline gates before it
-                reaches any cluster.
-              </p>
-            ) : (
-              <div className="space-y-2 rounded-md border border-accent/40 bg-accent/5 p-2.5">
-                <Badge tone="accent" className="text-[10px]">
-                  Advanced · in-app approval (preview)
-                </Badge>
+          {/* Approval (optional) */}
+          <WizStep n={5} label="Approval">
+            <p className="flex items-start gap-2 rounded-md border border-border bg-bg-subtle p-2.5 text-[12px] text-fg-muted">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+              Every run already passes your repo&apos;s PR review and CI/CD gates before it
+              reaches a cluster. An extra approval is optional.
+            </p>
+            <label className="mt-2 flex cursor-pointer items-center gap-2 text-[12px] text-fg">
+              <input
+                type="checkbox"
+                checked={useApprovals}
+                onChange={(e) => setUseApprovals(e.target.checked)}
+              />
+              Require sign-off from the Approvals service
+              <Badge tone="accent" className="text-[10px]">
+                preview
+              </Badge>
+            </label>
+            {useApprovals && (
+              <div className="mt-2 space-y-2 rounded-md border border-accent/40 bg-accent/5 p-2.5">
                 <Input
-                  placeholder="Approver name"
+                  placeholder="Route to (approver or group)"
                   value={approver}
                   onChange={(e) => setApprover(e.target.value)}
                   className="w-full"
                 />
-                <label className="flex items-center gap-2 text-[12px] text-fg">
-                  <input
-                    type="checkbox"
-                    checked={approved}
-                    onChange={(e) => setApproved(e.target.checked)}
-                  />
-                  I approve this deployment.
-                </label>
+                <ol className="space-y-1 text-[11px] text-fg-muted">
+                  <li>1. Waiting on approval (request sent to Approvals service)</li>
+                  <li>2. Approval received</li>
+                  <li>3. Submitted to pipeline (ADO / GitHub Actions)</li>
+                  <li>4. Deploying</li>
+                  <li>5. Done</li>
+                </ol>
               </div>
             )}
           </WizStep>
@@ -391,7 +405,7 @@ function NewDeploymentWizard({
             </Button>
             <Button variant="primary" size="sm" disabled={!canExecute} onClick={execute}>
               <Check className="h-3.5 w-3.5" />
-              Run deployment
+              {useApprovals ? "Request approval" : "Run deployment"}
             </Button>
           </div>
         </footer>
