@@ -203,7 +203,7 @@ export function SiteDetailDrawer({
 
             <DetailSection
               icon={Cpu}
-              title={`Components on release ${release}${driftCount > 0 ? ` · ${driftCount} off paved path` : ""}`}
+              title={`Components on release ${release}${driftCount > 0 ? ` · ${driftCount} drift` : ""}`}
             >
               <ul className="divide-y divide-border-subtle text-[12px]">
                 {components.map((c) => (
@@ -216,7 +216,7 @@ export function SiteDetailDrawer({
                       <span className="font-mono text-[11px] text-fg-muted">{c.version}</span>
                       {c.drift && (
                         <span className="rounded-sm border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-warning">
-                          off path
+                          drift
                         </span>
                       )}
                     </span>
@@ -225,11 +225,9 @@ export function SiteDetailDrawer({
               </ul>
               {driftCount > 0 && (
                 <p className="mt-1.5 rounded-sm border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] text-warning-fg">
-                  {driftCount === 1 ? "1 component is" : `${driftCount} components are`} on a
-                  version release {release} does not ship. A release bundle is applied as a
-                  unit, so this only happens when the cluster is taken off the paved path: a
-                  manual change outside the release, or a partially-failed upgrade. Re-running
-                  the rollout against this site restores the bundle.
+                  {driftCount === 1 ? "1 component" : `${driftCount} components`} on a
+                  version different from what release {release} ships. Usually fixed by
+                  re-running the rollout against this site.
                 </p>
               )}
             </DetailSection>

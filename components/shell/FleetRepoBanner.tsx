@@ -31,6 +31,8 @@ export function FleetRepoBanner() {
   const pathname = usePathname() ?? "/";
   const fleetRepo = useAppStore((s) => s.fleetRepo);
 
+  // The v2 experiment supplies its own shell and git widget.
+  if (pathname.startsWith("/v2")) return null;
   if (fleetRepo.selectedRepo) return null;
   if (shouldHide(pathname)) return null;
 

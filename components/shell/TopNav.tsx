@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Cloud, Sparkles, Layers, Compass } from "lucide-react";
+import { Cloud, Sparkles, Layers, Compass, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 import { TENANT } from "@/lib/fixtures/tenant";
@@ -47,6 +47,8 @@ export function TopNav() {
   const setScopeProfile = useAppStore((s) => s.setScopeProfile);
   const focused = scopeProfile === "focused";
   const navItems = focused ? NAV.filter((item) => item.focused) : NAV;
+  // The v2 experiment renders its own full-screen shell; suppress classic chrome.
+  if (pathname?.startsWith("/v2")) return null;
   return (
     <header className="flex h-12 items-center gap-6 border-b border-border bg-surface px-4">
       <div className="flex items-center gap-2 font-semibold text-fg">
@@ -83,6 +85,15 @@ export function TopNav() {
         })}
       </nav>
       <div className="ml-auto flex items-center gap-3">
+        {/* Removable entry point to the v2 experiment. Delete this Link to hide it. */}
+        <Link
+          href="/v2"
+          title="Open the v2 design experiment (parallel surface — nothing here changes)."
+          className="inline-flex h-7 items-center gap-1.5 rounded-full border border-accent/40 bg-accent-subtle px-2.5 text-[11px] font-semibold text-accent transition-colors hover:border-accent"
+        >
+          <Wand2 className="h-3 w-3" />
+          Try new look
+        </Link>
         <label
           className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border bg-bg-subtle pl-2.5 pr-1.5 text-[11px] font-medium text-fg-muted"
           title={
