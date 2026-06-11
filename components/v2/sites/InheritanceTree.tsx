@@ -6,7 +6,7 @@ import { ChevronRight, FileCode2, MapPin, Layers } from "lucide-react";
 import type { FleetSite, SiteTemplate } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
-import { healthMeta, envTone, siteHasDrift } from "@/lib/v2/format";
+import { healthMeta, envTone, siteHasDrift, templateRole } from "@/lib/v2/format";
 
 /**
  * Inheritance ("inherits:") tree for the connected repo: shows how each site
@@ -94,6 +94,13 @@ function TemplateRow({
   const release = node.template?.properties?.aioRelease;
   const region = node.template?.location;
   const siteCount = countSites(node);
+  const role = node.template
+    ? templateRole({
+        inherits: node.template.inherits,
+        subscription: (node.template as unknown as { subscription?: string }).subscription,
+        location: node.template.location,
+      })
+    : undefined;
   return (
     <button
       type="button"
@@ -110,8 +117,8 @@ function TemplateRow({
         <Layers className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />
       )}
       <span className="font-medium text-fg-muted">{node.label}</span>
-      <Badge tone="neutral" className="shrink-0">
-        shared default
+      <Badge tone={role?.tier === "subscription" ? "accent" : "neutral"} className="shrink-0">
+        {role?.label ?? "Shared defaults"}
       </Badge>
       {region && <span className="font-mono text-[11px] text-fg-subtle">{region}</span>}
       {release && (
@@ -218,7 +225,9 @@ export function InheritanceTree({ fleet }: { fleet: FleetSite[] }) {
   return (
     <div className="rounded-lg border border-border bg-surface p-2">
       <div className="px-2 pb-1.5 pt-1 text-[11px] text-fg-subtle">
-        Shared defaults (muted) supply config a site can opt into; each site below inherits and may override them.
+        Templates by tier — <span className="font-medium">Fleet baseline</span> (org-wide AIO
+        defaults) → <span className="font-medium">Subscription</span> (Azure subscription + region) →
+        each site, which inherits and may override them.
       </div>
       {roots.map((node) => (
         <Branch key={node.key} node={node} depth={0} expanded={expanded} onToggle={onToggle} />

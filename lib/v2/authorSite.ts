@@ -79,34 +79,55 @@ export function defaultClusterName(name: string): string {
 export interface TemplateNode {
   /** template name */
   name: string;
-  /** inherits path relative to sites/, e.g. "base-site.yaml" */
+  /** raw inherits value from YAML (may be a relative path like "../base-site.yaml") */
   inherits?: string;
   /** subscription declared on this template, if any */
   subscription?: string;
+  /** Azure region declared on this template, if any */
+  location?: string;
+}
+
+/** Tail filename without extension: "../base-site.yaml" -> "base-site". */
+function templateKey(inherits: string | undefined): string | undefined {
+  if (!inherits) return undefined;
+  const tail = inherits.split("/").pop() ?? inherits;
+  return tail.replace(/\.ya?ml$/i, "") || undefined;
 }
 
 /**
- * Resolve the subscription a new site WOULD inherit if it picks `inheritsPath`,
- * by walking that template's own inherits chain (most-specific wins, matching
- * the fleet resolver). `templatesByPath` maps a sites/-relative path to its
- * template. Returns undefined when nothing in the chain declares a subscription.
+ * Ordered inheritance chain (root-most first) for the template named
+ * `startName`. Walked BY NAME — matching the fleet resolver — so it tolerates
+ * relative `inherits` paths (e.g. a region template's "../base-site.yaml").
  */
-export function resolveInheritedSubscription(
-  inheritsPath: string,
-  templatesByPath: Map<string, TemplateNode>,
-): string | undefined {
+export function resolveTemplateChain(
+  startName: string,
+  templatesByName: Map<string, TemplateNode>,
+): TemplateNode[] {
   const chain: TemplateNode[] = [];
   const seen = new Set<string>();
-  let cursor: string | undefined = inheritsPath;
+  let cursor: string | undefined = startName;
   while (cursor && !seen.has(cursor)) {
     seen.add(cursor);
-    const node = templatesByPath.get(cursor);
+    const node = templatesByName.get(cursor);
     if (!node) break;
     chain.unshift(node);
-    cursor = node.inherits;
+    cursor = templateKey(node.inherits);
   }
+  return chain;
+}
+
+/**
+ * Resolve the subscription a new site WOULD inherit if it picks the template
+ * named `startName`, by walking that template's inherits chain (most-specific
+ * wins, matching the fleet resolver). Returns undefined when nothing in the
+ * chain declares a subscription.
+ */
+export function resolveInheritedSubscription(
+  startName: string,
+  templatesByName: Map<string, TemplateNode>,
+): string | undefined {
   let val: string | undefined;
-  for (const node of chain) {
+  for (const node of resolveTemplateChain(startName, templatesByName)) {
     if (node.subscription) val = node.subscription;
   }
   return val;

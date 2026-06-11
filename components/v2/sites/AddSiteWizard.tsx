@@ -9,12 +9,14 @@ import {
   ExternalLink,
   KeyRound,
   Loader2,
+  ArrowDownRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { useRepoConnection } from "@/store/useRepoConnection";
 import { writerFromConnection, resolveWriteToken, envWriteToken } from "@/lib/github/writeClient";
+import { templateRole } from "@/lib/v2/format";
 import {
   buildSiteYaml,
   buildSiteFileChange,
@@ -24,6 +26,7 @@ import {
   newSiteBranch,
   newSitePath,
   resolveInheritedSubscription,
+  resolveTemplateChain,
   type BrokerProfile,
   type NewSiteInput,
   type TemplateNode,
@@ -46,9 +49,21 @@ export function AddSiteWizard({ onClose }: { onClose: () => void }) {
   const inheritOptions = useMemo(
     () =>
       templates
-        .map((t) => ({ name: t.name, path: templatePaths[t.name], location: t.location }))
+        .map((t) => {
+          const role = templateRole({
+            inherits: t.inherits,
+            subscription: (t as unknown as { subscription?: string }).subscription,
+            location: t.location,
+          });
+          return { name: t.name, path: templatePaths[t.name], location: t.location, role };
+        })
         .filter((o) => !!o.path)
-        .sort((a, b) => a.name.localeCompare(b.name)),
+        // Most-specific (subscription) first, then baseline, then anything else.
+        .sort((a, b) => {
+          const rank = (t: string) => (t === "subscription" ? 0 : t === "baseline" ? 2 : 1);
+          const d = rank(a.role.tier) - rank(b.role.tier);
+          return d !== 0 ? d : a.name.localeCompare(b.name);
+        }),
     [templates, templatePaths],
   );
 
@@ -73,25 +88,43 @@ export function AddSiteWizard({ onClose }: { onClose: () => void }) {
   const effectiveRg = rgTouched ? resourceGroup : defaultResourceGroup(name);
   const effectiveCluster = clusterTouched ? clusterName : defaultClusterName(name);
 
-  // Subscription the chosen template would supply, so we can show it as the
-  // placeholder (empty input = inherit it; a typed value = override).
-  const templatesByPath = useMemo(() => {
+  // Templates keyed by NAME so we can walk the inherits chain robustly (region
+  // templates use relative inherits like "../base-site.yaml").
+  const templatesByName = useMemo(() => {
     const m = new Map<string, TemplateNode>();
     for (const t of templates) {
-      const path = templatePaths[t.name];
-      if (!path) continue;
-      m.set(path, {
+      m.set(t.name, {
         name: t.name,
         inherits: t.inherits,
         subscription: (t as unknown as { subscription?: string }).subscription,
+        location: t.location,
       });
     }
     return m;
-  }, [templates, templatePaths]);
+  }, [templates]);
 
+  // The selected "inherits" is a sites/-relative path; map it back to a name.
+  const selectedTemplateName = useMemo(
+    () => inheritOptions.find((o) => o.path === inherits)?.name,
+    [inheritOptions, inherits],
+  );
+
+  // The full chain the new site resolves through, root-most first
+  // (e.g. Fleet baseline -> Subscription -> this site).
+  const chain = useMemo(
+    () => (selectedTemplateName ? resolveTemplateChain(selectedTemplateName, templatesByName) : []),
+    [selectedTemplateName, templatesByName],
+  );
+
+  // Subscription the chosen chain would supply, shown as the placeholder
+  // (empty input = inherit it; a typed value = override).
   const inheritedSubscription = useMemo(
-    () => (inherits ? resolveInheritedSubscription(inherits, templatesByPath) : undefined),
-    [inherits, templatesByPath],
+    () => (selectedTemplateName ? resolveInheritedSubscription(selectedTemplateName, templatesByName) : undefined),
+    [selectedTemplateName, templatesByName],
+  );
+  const subscriptionSource = useMemo(
+    () => [...chain].reverse().find((n) => n.subscription),
+    [chain],
   );
   const subOverridden = subscription.trim().length > 0;
 
@@ -218,16 +251,46 @@ export function AddSiteWizard({ onClose }: { onClose: () => void }) {
                 )}
               </Field>
 
-              <Field label="Inherits from" hint="a shared default supplies subscription + location">
+              <Field
+                label="Inherits from"
+                hint="pick the template tier this site sits under"
+              >
                 <Select value={inherits} onChange={(e) => setInherits(e.target.value)} className="w-full">
                   {inheritOptions.length === 0 && <option value="">No templates found</option>}
                   {inheritOptions.map((o) => (
                     <option key={o.path} value={o.path}>
-                      {o.name}
-                      {o.location ? ` (${o.location})` : ""} - {o.path}
+                      {o.role.qualifiedLabel} — {o.name} ({o.path})
                     </option>
                   ))}
                 </Select>
+                {chain.length > 0 && (
+                  <div className="mt-2 rounded-md border border-border bg-bg-subtle px-2.5 py-2">
+                    <p className="mb-1.5 text-[11px] font-medium text-fg-subtle">
+                      Resolves through {chain.length} tier{chain.length === 1 ? "" : "s"}:
+                    </p>
+                    <ol className="space-y-1">
+                      {chain.map((node) => {
+                        const role = templateRole(node);
+                        return (
+                          <li key={node.name} className="flex items-center gap-1.5 text-[11px]">
+                            <ArrowDownRight className="h-3 w-3 shrink-0 text-fg-subtle" />
+                            <span className="font-medium text-fg">{role.label}</span>
+                            <span className="font-mono text-fg-subtle">{node.name}</span>
+                            <span className="text-fg-subtle">— {role.supplies}</span>
+                          </li>
+                        );
+                      })}
+                      <li className="flex items-center gap-1.5 text-[11px]">
+                        <ArrowDownRight className="h-3 w-3 shrink-0 text-accent" />
+                        <span className="font-medium text-accent">This site</span>
+                        <span className="font-mono text-fg-subtle">
+                          {nameValid ? name : "<site-name>"}
+                        </span>
+                        <span className="text-fg-subtle">— overrides any of the above</span>
+                      </li>
+                    </ol>
+                  </div>
+                )}
               </Field>
 
               <Field
@@ -237,7 +300,7 @@ export function AddSiteWizard({ onClose }: { onClose: () => void }) {
                 <Input
                   value={subscription}
                   onChange={(e) => setSubscription(e.target.value)}
-                  placeholder={inheritedSubscription ?? "inherited from shared default"}
+                  placeholder={inheritedSubscription ?? "no subscription in the chain — enter one"}
                   spellCheck={false}
                   className="font-mono"
                 />
@@ -246,15 +309,16 @@ export function AddSiteWizard({ onClose }: { onClose: () => void }) {
                     <span className="text-warning">
                       Override — this site pins its own subscription, not the inherited one.
                     </span>
-                  ) : inheritedSubscription ? (
+                  ) : inheritedSubscription && subscriptionSource ? (
                     <span className="text-fg-subtle">
                       Inheriting{" "}
-                      <span className="font-mono text-fg-muted">{inheritedSubscription}</span> from{" "}
-                      <span className="font-mono">{inherits}</span>.
+                      <span className="font-mono text-fg-muted">{inheritedSubscription}</span> from the{" "}
+                      <span className="font-medium">{templateRole(subscriptionSource).qualifiedLabel}</span>{" "}
+                      template (<span className="font-mono">{subscriptionSource.name}</span>).
                     </span>
                   ) : (
                     <span className="text-fg-subtle">
-                      The selected default declares no subscription; enter one to set it here.
+                      No template in the chain declares a subscription; enter one to set it here.
                     </span>
                   )}
                 </p>

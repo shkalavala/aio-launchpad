@@ -14,6 +14,58 @@ export function regionLabel(slug: string): string {
   return REGION_LABELS[slug] ?? slug;
 }
 
+/**
+ * Classify a SiteTemplate by the role it plays in the inheritance chain, so the
+ * UI can name the tiers instead of calling everything a "shared default".
+ *
+ * - "baseline"     — the org-wide root (no inherits, no Azure binding): AIO
+ *                    release, broker, deploy options. e.g. base-site.yaml.
+ * - "subscription" — a per-Azure-subscription/region template that supplies
+ *                    subscription + location + country. e.g. shared/sweden.yaml.
+ * - "shared"       — any other intermediate template of shared defaults.
+ */
+export type TemplateTier = "baseline" | "subscription" | "shared";
+
+export interface TemplateRoleInfo {
+  tier: TemplateTier;
+  /** Short badge label, e.g. "Fleet baseline" or "Subscription". */
+  label: string;
+  /** A region-qualified label where it applies, e.g. "Subscription · Sweden Central". */
+  qualifiedLabel: string;
+  /** One line on what this tier contributes. */
+  supplies: string;
+}
+
+export function templateRole(t: {
+  inherits?: string;
+  subscription?: string;
+  location?: string;
+}): TemplateRoleInfo {
+  if (t.subscription || t.location) {
+    const region = t.location ? regionLabel(t.location) : undefined;
+    return {
+      tier: "subscription",
+      label: "Subscription",
+      qualifiedLabel: region ? `Subscription · ${region}` : "Subscription",
+      supplies: "Azure subscription + region",
+    };
+  }
+  if (!t.inherits) {
+    return {
+      tier: "baseline",
+      label: "Fleet baseline",
+      qualifiedLabel: "Fleet baseline",
+      supplies: "org-wide AIO defaults (release, broker, deploy options)",
+    };
+  }
+  return {
+    tier: "shared",
+    label: "Shared defaults",
+    qualifiedLabel: "Shared defaults",
+    supplies: "shared configuration defaults",
+  };
+}
+
 export function enterpriseLabel(fs: FleetSite): string {
   const slug = fs.resolvedLabels.enterprise ?? "contoso-industries";
   return slug
