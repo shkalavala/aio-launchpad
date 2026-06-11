@@ -23,8 +23,10 @@ import {
   isValidSiteName,
   newSiteBranch,
   newSitePath,
+  resolveInheritedSubscription,
   type BrokerProfile,
   type NewSiteInput,
+  type TemplateNode,
 } from "@/lib/v2/authorSite";
 
 /**
@@ -54,6 +56,7 @@ export function AddSiteWizard({ onClose }: { onClose: () => void }) {
   const [inherits, setInherits] = useState(inheritOptions[0]?.path ?? "");
   const [environment, setEnvironment] = useState("dev");
   const [city, setCity] = useState("");
+  const [subscription, setSubscription] = useState("");
   const [rgTouched, setRgTouched] = useState(false);
   const [resourceGroup, setResourceGroup] = useState("");
   const [clusterTouched, setClusterTouched] = useState(false);
@@ -70,6 +73,28 @@ export function AddSiteWizard({ onClose }: { onClose: () => void }) {
   const effectiveRg = rgTouched ? resourceGroup : defaultResourceGroup(name);
   const effectiveCluster = clusterTouched ? clusterName : defaultClusterName(name);
 
+  // Subscription the chosen template would supply, so we can show it as the
+  // placeholder (empty input = inherit it; a typed value = override).
+  const templatesByPath = useMemo(() => {
+    const m = new Map<string, TemplateNode>();
+    for (const t of templates) {
+      const path = templatePaths[t.name];
+      if (!path) continue;
+      m.set(path, {
+        name: t.name,
+        inherits: t.inherits,
+        subscription: (t as unknown as { subscription?: string }).subscription,
+      });
+    }
+    return m;
+  }, [templates, templatePaths]);
+
+  const inheritedSubscription = useMemo(
+    () => (inherits ? resolveInheritedSubscription(inherits, templatesByPath) : undefined),
+    [inherits, templatesByPath],
+  );
+  const subOverridden = subscription.trim().length > 0;
+
   const nameValid = isValidSiteName(name);
   const effectiveToken = resolveWriteToken(token, connection?.token);
   const canSubmit =
@@ -80,6 +105,7 @@ export function AddSiteWizard({ onClose }: { onClose: () => void }) {
     inherits: inherits || "<shared-default>",
     environment: environment.trim() || "dev",
     city,
+    subscription,
     resourceGroup: effectiveRg || "<resource-group>",
     clusterName: effectiveCluster || "<cluster-name>",
     brokerProfile,
@@ -102,6 +128,7 @@ export function AddSiteWizard({ onClose }: { onClose: () => void }) {
         inherits,
         environment: environment.trim(),
         city,
+        subscription,
         resourceGroup: effectiveRg,
         clusterName: effectiveCluster,
         brokerProfile,
@@ -118,6 +145,9 @@ export function AddSiteWizard({ onClose }: { onClose: () => void }) {
           "",
           `- Inherits: \`${inherits}\``,
           `- Environment: \`${environment.trim()}\``,
+          subOverridden
+            ? `- Subscription: \`${subscription.trim()}\` (override)`
+            : `- Subscription: inherited from \`${inherits}\``,
           `- Resource group: \`${effectiveRg}\``,
           `- Broker profile: ${brokerProfile}`,
         ].join("\n"),
@@ -198,6 +228,36 @@ export function AddSiteWizard({ onClose }: { onClose: () => void }) {
                     </option>
                   ))}
                 </Select>
+              </Field>
+
+              <Field
+                label="Azure subscription"
+                hint={subOverridden ? "overriding the inherited value" : "leave blank to inherit"}
+              >
+                <Input
+                  value={subscription}
+                  onChange={(e) => setSubscription(e.target.value)}
+                  placeholder={inheritedSubscription ?? "inherited from shared default"}
+                  spellCheck={false}
+                  className="font-mono"
+                />
+                <p className="mt-1 flex items-center gap-1.5 text-[11px]">
+                  {subOverridden ? (
+                    <span className="text-warning">
+                      Override — this site pins its own subscription, not the inherited one.
+                    </span>
+                  ) : inheritedSubscription ? (
+                    <span className="text-fg-subtle">
+                      Inheriting{" "}
+                      <span className="font-mono text-fg-muted">{inheritedSubscription}</span> from{" "}
+                      <span className="font-mono">{inherits}</span>.
+                    </span>
+                  ) : (
+                    <span className="text-fg-subtle">
+                      The selected default declares no subscription; enter one to set it here.
+                    </span>
+                  )}
+                </p>
               </Field>
 
               <div className="grid grid-cols-2 gap-3">
