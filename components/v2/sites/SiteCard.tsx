@@ -6,7 +6,8 @@ import type { FleetSite } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 import { useV2Store } from "@/store/useV2Store";
-import { healthMeta, envTone, clusterInfo, siteHasDrift } from "@/lib/v2/format";
+import { envTone, clusterInfo, siteHasDrift } from "@/lib/v2/format";
+import { HealthDot } from "@/components/v2/ui/HealthDot";
 
 /**
  * A single site card: status, cluster info, and environment. Drift is shown as
@@ -16,7 +17,6 @@ import { healthMeta, envTone, clusterInfo, siteHasDrift } from "@/lib/v2/format"
 export function SiteCard({ fs }: { fs: FleetSite }) {
   const advanced = useV2Store((s) => s.mode === "advanced");
   const env = fs.runtime.environment;
-  const health = healthMeta(fs.runtime.health);
   const cluster = clusterInfo(fs);
   const drift = siteHasDrift(fs);
 
@@ -35,8 +35,7 @@ export function SiteCard({ fs }: { fs: FleetSite }) {
       </div>
 
       <div className="flex items-center gap-1.5 text-[12px]">
-        <span className={cn("h-2 w-2 rounded-full", health.dot)} />
-        <span className="text-fg-muted">{health.label}</span>
+        <HealthDot fs={fs} withLabel />
       </div>
 
       <div className="space-y-1 border-t border-border pt-2 text-[12px] text-fg-muted">

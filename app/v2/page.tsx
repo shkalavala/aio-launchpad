@@ -19,6 +19,9 @@ import { shortSha } from "@/lib/git/fixtures";
 import { ChangeStatePill } from "@/components/v2/shell/ChangeStatePill";
 import { RECENT_DEPLOYMENTS, statusMeta } from "@/lib/v2/deployments";
 import { clusterInfo } from "@/lib/v2/format";
+import { observedAvailable } from "@/lib/v2/observedState";
+import { useObservedSource } from "@/store/useObservedSource";
+import { TelemetrySourceToggle } from "@/components/v2/ui/TelemetrySourceToggle";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +34,8 @@ export default function V2DashboardPage() {
   const incoming = useV2Store((s) => s.incomingChanges);
   const driftChecked = useV2Store((s) => s.driftChecked);
   const driftRecords = useV2Store((s) => s.driftRecords);
+  const sourceId = useObservedSource((s) => s.sourceId);
+  const observedOk = observedAvailable(sourceId);
 
   const total = fleet.length;
   const healthy = fleet.filter((s) => s.runtime.health === "healthy").length;
@@ -59,6 +64,7 @@ export default function V2DashboardPage() {
       <PageHeader
         title="Dashboard"
         description="Fleet health, repository state, and recent activity at a glance."
+        actions={<TelemetrySourceToggle />}
       />
 
       {/* Stat cards */}
@@ -68,9 +74,14 @@ export default function V2DashboardPage() {
             {devCount} dev · {prodCount} prod
           </span>
         </StatCard>
-        <StatCard icon={<Activity className="h-4 w-4" />} label="Healthy" value={healthy} tone="success">
+        <StatCard
+          icon={<Activity className="h-4 w-4" />}
+          label="Healthy"
+          value={observedOk ? healthy : "—"}
+          tone={observedOk ? "success" : "neutral"}
+        >
           <span className="text-fg-subtle">
-            {degraded} degraded · {unhealthy} unhealthy
+            {observedOk ? `${degraded} degraded · ${unhealthy} unhealthy` : "Not connected"}
           </span>
         </StatCard>
         <StatCard icon={<Inbox className="h-4 w-4" />} label="Incoming" value={incoming.length} tone="accent">

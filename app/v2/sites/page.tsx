@@ -9,6 +9,7 @@ import { SiteCard } from "@/components/v2/sites/SiteCard";
 import { SiteFilters } from "@/components/v2/sites/SiteFilters";
 import { InheritanceTree } from "@/components/v2/sites/InheritanceTree";
 import { AddSiteWizard } from "@/components/v2/sites/AddSiteWizard";
+import { TelemetrySourceToggle } from "@/components/v2/ui/TelemetrySourceToggle";
 import { Button } from "@/components/ui/Button";
 import { useIsRepoConnected } from "@/store/useRepoConnection";
 import { cn } from "@/lib/utils";
@@ -54,12 +55,15 @@ export default function V2SitesPage() {
         title="Sites"
         description="Your fleet by Enterprise, Region, and Site. Environment and cluster are shown per site."
         actions={
-          connected ? (
-            <Button variant="primary" size="sm" onClick={() => setAddOpen(true)}>
-              <Plus className="h-3.5 w-3.5" />
-              Add site
-            </Button>
-          ) : undefined
+          <div className="flex items-center gap-3">
+            <TelemetrySourceToggle />
+            {connected && (
+              <Button variant="primary" size="sm" onClick={() => setAddOpen(true)}>
+                <Plus className="h-3.5 w-3.5" />
+                Add site
+              </Button>
+            )}
+          </div>
         }
       />
       {addOpen && <AddSiteWizard onClose={() => setAddOpen(false)} />}

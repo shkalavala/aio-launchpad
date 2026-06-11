@@ -1,6 +1,7 @@
 import type { FleetSite, HealthStatus } from "@/lib/types";
 import { TENANT } from "@/lib/fixtures/tenant";
 import { DRIFT_SITE_NAMES } from "@/lib/git/fixtures";
+import type { ObservedHealth } from "@/lib/v2/observedState";
 
 /** Friendly Azure-region labels for the regions present in the fixtures. */
 export const REGION_LABELS: Record<string, string> = {
@@ -20,17 +21,20 @@ export function regionLabel(slug: string): string {
  *
  * - "baseline"     — the org-wide root (no inherits, no Azure binding): AIO
  *                    release, broker, deploy options. e.g. base-site.yaml.
- * - "subscription" — a per-Azure-subscription/region template that supplies
- *                    subscription + location + country. e.g. shared/sweden.yaml.
+ * - "subscription" — an intermediate "Shared baseline" template that groups a
+ *                    subset of sites and supplies their shared Azure binding
+ *                    (subscription + location + country). e.g. shared/sweden.yaml.
+ *                    (The internal id stays "subscription" — it marks the tier
+ *                    that carries the Azure binding — but the label is generic.)
  * - "shared"       — any other intermediate template of shared defaults.
  */
 export type TemplateTier = "baseline" | "subscription" | "shared";
 
 export interface TemplateRoleInfo {
   tier: TemplateTier;
-  /** Short badge label, e.g. "Fleet baseline" or "Subscription". */
+  /** Short badge label, e.g. "Fleet baseline" or "Shared baseline". */
   label: string;
-  /** A region-qualified label where it applies, e.g. "Subscription · Sweden Central". */
+  /** A region-qualified label where it applies, e.g. "Shared baseline · Sweden Central". */
   qualifiedLabel: string;
   /** One line on what this tier contributes. */
   supplies: string;
@@ -45,8 +49,8 @@ export function templateRole(t: {
     const region = t.location ? regionLabel(t.location) : undefined;
     return {
       tier: "subscription",
-      label: "Subscription",
-      qualifiedLabel: region ? `Subscription · ${region}` : "Subscription",
+      label: "Shared baseline",
+      qualifiedLabel: region ? `Shared baseline · ${region}` : "Shared baseline",
       supplies: "Azure subscription + region",
     };
   }
@@ -85,6 +89,28 @@ export function healthMeta(h: HealthStatus): { label: string; tone: Tone; dot: s
     case "unhealthy":
       return { label: "Unhealthy", tone: "danger", dot: "bg-danger" };
   }
+}
+
+/**
+ * Health treatment for an *observed* datum, honoring its provenance. When the
+ * active source can't see the cluster (e.g. Azure not connected) we render an
+ * honest "Not connected" pip instead of a colored health dot.
+ */
+export function observedHealthMeta(o: ObservedHealth): {
+  label: string;
+  tone: Tone;
+  dot: string;
+  unknown: boolean;
+} {
+  if (o.kind === "unknown" || !o.health) {
+    return {
+      label: "Not connected",
+      tone: "neutral",
+      dot: "bg-transparent ring-1 ring-inset ring-border-strong",
+      unknown: true,
+    };
+  }
+  return { ...healthMeta(o.health), unknown: false };
 }
 
 export function envTone(env: string): Tone {

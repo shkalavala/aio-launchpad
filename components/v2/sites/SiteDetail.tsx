@@ -26,7 +26,8 @@ import { RemoveSiteDialog } from "@/components/v2/sites/RemoveSiteDialog";
 import { EditBindingsDrawer } from "@/components/v2/sites/EditBindingsDrawer";
 import { buildConfigPair } from "@/lib/v2/config";
 import { DiffView } from "@/components/v2/diff/DiffView";
-import { healthMeta, clusterInfo, envTone, regionLabel } from "@/lib/v2/format";
+import { clusterInfo, envTone, regionLabel } from "@/lib/v2/format";
+import { HealthDot } from "@/components/v2/ui/HealthDot";
 import { EVENTS_BY_SITE, type SiteEvent } from "@/lib/fixtures/events";
 import { SECRETS_BY_SITE, kvForSite } from "@/lib/fixtures/secrets";
 import { RELEASES_BY_ID } from "@/lib/fixtures/releases";
@@ -48,7 +49,6 @@ export function SiteDetail({ fs }: { fs: FleetSite }) {
   const mode = useV2Store((s) => s.mode);
   const repoConnected = useIsRepoConnected();
   const env = fs.runtime.environment;
-  const health = healthMeta(fs.runtime.health);
 
   return (
     <div>
@@ -63,10 +63,7 @@ export function SiteDetail({ fs }: { fs: FleetSite }) {
         <div className="flex items-center gap-3">
           <h1 className="text-[18px] font-semibold text-fg">{fs.site.name}</h1>
           <Badge tone={envTone(env)}>{env}</Badge>
-          <span className="inline-flex items-center gap-1.5 text-[12px] text-fg-muted">
-            <span className={cn("h-2 w-2 rounded-full", health.dot)} />
-            {health.label}
-          </span>
+          <HealthDot fs={fs} withLabel className="text-[12px]" />
           {repoConnected && (
             <div className="ml-auto flex items-center gap-2">
               <button

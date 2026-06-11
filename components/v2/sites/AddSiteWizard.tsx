@@ -110,7 +110,7 @@ export function AddSiteWizard({ onClose }: { onClose: () => void }) {
   );
 
   // The full chain the new site resolves through, root-most first
-  // (e.g. Fleet baseline -> Subscription -> this site).
+  // (e.g. Fleet baseline -> Shared baseline -> this site).
   const chain = useMemo(
     () => (selectedTemplateName ? resolveTemplateChain(selectedTemplateName, templatesByName) : []),
     [selectedTemplateName, templatesByName],

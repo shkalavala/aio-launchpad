@@ -6,9 +6,10 @@ import { ChevronRight, FileCode2, MapPin, Layers, SlidersHorizontal } from "luci
 import type { FleetSite, SiteTemplate } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
-import { healthMeta, envTone, siteHasDrift, templateRole } from "@/lib/v2/format";
+import { envTone, siteHasDrift, templateRole } from "@/lib/v2/format";
 import { useRepoConnection, useIsRepoConnected } from "@/store/useRepoConnection";
 import { TemplateEditDrawer } from "@/components/v2/sites/TemplateEditDrawer";
+import { HealthDot } from "@/components/v2/ui/HealthDot";
 
 /**
  * Inheritance ("inherits:") tree for the connected repo: shows how each site
@@ -153,7 +154,6 @@ function TemplateRow({
 function SiteRow({ node, depth }: { node: TreeNode; depth: number }) {
   const fs = node.fs!;
   const env = fs.runtime.environment;
-  const health = healthMeta(fs.runtime.health);
   const drift = siteHasDrift(fs);
   return (
     <Link
@@ -162,7 +162,7 @@ function SiteRow({ node, depth }: { node: TreeNode; depth: number }) {
       style={{ paddingLeft: depth * 18 + 8 }}
     >
       <FileCode2 className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />
-      <span className={cn("h-2 w-2 shrink-0 rounded-full", health.dot)} />
+      <HealthDot fs={fs} />
       <span className="font-medium text-fg group-hover:text-accent">{fs.site.name}</span>
       <Badge tone={envTone(env)} className="shrink-0">
         {env}
@@ -265,7 +265,7 @@ export function InheritanceTree({ fleet }: { fleet: FleetSite[] }) {
     <div className="rounded-lg border border-border bg-surface p-2">
       <div className="px-2 pb-1.5 pt-1 text-[11px] text-fg-subtle">
         Templates by tier — <span className="font-medium">Fleet baseline</span> (org-wide AIO
-        defaults) → <span className="font-medium">Subscription</span> (Azure subscription + region) →
+        defaults) → <span className="font-medium">Shared baseline</span> (Azure subscription + region) →
         each site, which inherits and may override them.
       </div>
       {roots.map((node) => (
