@@ -9,6 +9,10 @@ import {
   ChevronRight,
   Check,
   X,
+  Layers,
+  Loader2,
+  ExternalLink,
+  CornerDownRight,
 } from "lucide-react";
 import { useV2Store } from "@/store/useV2Store";
 import { shortSha } from "@/lib/git/fixtures";
@@ -17,6 +21,10 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 import { RepoConnectPanel } from "@/components/v2/shell/RepoConnectPanel";
+import { useRepoConnection } from "@/store/useRepoConnection";
+import { useBindingStage, useStagedEdits } from "@/store/useBindingStage";
+import { writerFromConnection, resolveWriteToken } from "@/lib/github/writeClient";
+import { patchSiteYaml, buildBindingFileChange, bindingsBranch } from "@/lib/v2/bindings";
 
 /** Full change-management body: repo, pending changes, incoming, drift. */
 export function ChangeManagementFlyout() {
@@ -25,6 +33,7 @@ export function ChangeManagementFlyout() {
       <SectionLabel>Repository</SectionLabel>
       <RepoConnectPanel />
 
+      <StagedBindingsSection />
       <PendingSection />
       <IncomingSection />
       <DriftSection />
@@ -37,6 +46,168 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
     <div className="mb-2 mt-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-fg-subtle first:mt-0">
       {children}
     </div>
+  );
+}
+
+// ── Staged Azure-binding edits (real repo, one PR for the whole batch) ────────
+
+function StagedBindingsSection() {
+  const staged = useStagedEdits();
+  const unstage = useBindingStage((s) => s.unstage);
+  const clearAll = useBindingStage((s) => s.clearAll);
+  const connection = useRepoConnection((s) => s.connection);
+
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ number: number; url: string } | null>(null);
+
+  const effectiveToken = resolveWriteToken(connection?.token);
+  const canOpenPr = !!connection && staged.length > 0 && !!effectiveToken && !submitting;
+
+  async function onOpenPr() {
+    if (!connection) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const writer = writerFromConnection({ ...connection, token: effectiveToken });
+      if (!writer) throw new Error("A write-scoped token is required to open a pull request.");
+
+      const changes = staged.map((s) =>
+        buildBindingFileChange(s.filePath, patchSiteYaml(s.originalText, s.edit)),
+      );
+      const names = staged.map((s) => s.siteName);
+      const summary = staged
+        .map(
+          (s) =>
+            `- \`${s.siteName}\`\n` +
+            s.deltas.map((d) => `  - ${d.label}: \`${d.before}\` → \`${d.after}\``).join("\n"),
+        )
+        .join("\n");
+
+      const pr = await writer.authorChange({
+        branch: bindingsBranch(),
+        changes,
+        commitMessage:
+          names.length === 1
+            ? `Edit Azure bindings for ${names[0]}`
+            : `Edit Azure bindings for ${names.length} sites`,
+        prTitle:
+          names.length === 1
+            ? `Edit Azure bindings — ${names[0]}`
+            : `Edit Azure bindings — ${names.length} sites`,
+        prBody: [
+          "Updates Azure bindings on existing sites, authored via AIO Launchpad.",
+          "",
+          summary,
+          "",
+          "Only the edited values change — each file's comments and key order are preserved.",
+        ].join("\n"),
+      });
+      setResult({ number: pr.number, url: pr.url });
+      clearAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to open the pull request.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (staged.length === 0 && !result) return null;
+
+  return (
+    <>
+      <SectionLabel>
+        <Layers className="h-3.5 w-3.5" />
+        Staged binding edits
+        {staged.length > 0 && (
+          <Badge tone="accent" className="ml-1 text-[10px]">
+            {staged.length}
+          </Badge>
+        )}
+      </SectionLabel>
+
+      {result ? (
+        <div className="rounded-md border border-success/40 bg-success/10 p-2.5 text-[12px]">
+          <div className="flex items-center gap-1.5 font-medium text-fg">
+            <Check className="h-3.5 w-3.5 text-success" />
+            Pull request #{result.number} opened
+          </div>
+          <a
+            href={result.url}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-flex items-center gap-1 text-[12px] font-medium text-accent hover:underline"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Review on GitHub
+          </a>
+          <button
+            type="button"
+            onClick={() => setResult(null)}
+            className="ml-3 text-[12px] text-fg-subtle hover:text-fg"
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-1.5">
+            {staged.map((s) => (
+              <div key={s.siteName} className="rounded-md border border-border bg-bg-subtle/40 p-2.5 text-[12px]">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono font-medium text-fg">{s.siteName}</span>
+                  <button
+                    type="button"
+                    onClick={() => unstage(s.siteName)}
+                    className="ml-auto text-fg-subtle hover:text-danger"
+                    title="Unstage"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="mt-1 space-y-0.5">
+                  {s.deltas.map((d) => (
+                    <div key={d.field} className="flex items-start gap-1 font-mono text-[11px] text-fg-subtle">
+                      <CornerDownRight className="mt-0.5 h-3 w-3 shrink-0 text-accent" />
+                      <span>
+                        {d.label}: <span className="line-through">{d.before}</span>
+                        <span className="mx-1">→</span>
+                        <span className="text-fg">{d.after}</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {!effectiveToken && (
+            <p className="mt-2 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-2 text-[11px] text-fg">
+              A write-scoped token is required to open the pull request.
+            </p>
+          )}
+          {error && (
+            <p className="mt-2 rounded-md border border-danger/40 bg-danger/10 px-2.5 py-2 text-[11px] text-danger">
+              {error}
+            </p>
+          )}
+
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button size="sm" variant="primary" onClick={onOpenPr} disabled={!canOpenPr}>
+              {submitting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <GitPullRequest className="h-3.5 w-3.5" />
+              )}
+              Open PR ({staged.length})
+            </Button>
+            <Button size="sm" variant="ghost" onClick={clearAll} disabled={submitting}>
+              Clear all
+            </Button>
+          </div>
+        </>
+      )}
+    </>
   );
 }
 

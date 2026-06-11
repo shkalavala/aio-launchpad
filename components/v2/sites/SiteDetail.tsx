@@ -15,6 +15,7 @@ import {
   Radio,
   Send,
   Trash2,
+  Layers,
 } from "lucide-react";
 import type { FleetSite, LayerBase, SecretSyncStatus } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
@@ -22,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { useV2Store } from "@/store/useV2Store";
 import { useIsRepoConnected } from "@/store/useRepoConnection";
 import { RemoveSiteDialog } from "@/components/v2/sites/RemoveSiteDialog";
+import { EditBindingsDrawer } from "@/components/v2/sites/EditBindingsDrawer";
 import { buildConfigPair } from "@/lib/v2/config";
 import { DiffView } from "@/components/v2/diff/DiffView";
 import { healthMeta, clusterInfo, envTone, regionLabel } from "@/lib/v2/format";
@@ -42,6 +44,7 @@ const TABS: { id: TabId; label: string; icon: typeof Server }[] = [
 export function SiteDetail({ fs }: { fs: FleetSite }) {
   const [tab, setTab] = useState<TabId>("infra");
   const [removing, setRemoving] = useState(false);
+  const [editingBindings, setEditingBindings] = useState(false);
   const mode = useV2Store((s) => s.mode);
   const repoConnected = useIsRepoConnected();
   const env = fs.runtime.environment;
@@ -65,14 +68,24 @@ export function SiteDetail({ fs }: { fs: FleetSite }) {
             {health.label}
           </span>
           {repoConnected && (
-            <button
-              type="button"
-              onClick={() => setRemoving(true)}
-              className="ml-auto inline-flex items-center gap-1.5 rounded border border-border-strong bg-surface px-2.5 py-1 text-[12px] font-medium text-fg-muted hover:border-danger/50 hover:text-danger"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Remove site
-            </button>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingBindings(true)}
+                className="inline-flex items-center gap-1.5 rounded border border-border-strong bg-surface px-2.5 py-1 text-[12px] font-medium text-fg-muted hover:border-accent/50 hover:text-accent"
+              >
+                <Layers className="h-3.5 w-3.5" />
+                Edit bindings
+              </button>
+              <button
+                type="button"
+                onClick={() => setRemoving(true)}
+                className="inline-flex items-center gap-1.5 rounded border border-border-strong bg-surface px-2.5 py-1 text-[12px] font-medium text-fg-muted hover:border-danger/50 hover:text-danger"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Remove site
+              </button>
+            </div>
           )}
         </div>
         <div className="mt-1 text-[12px] text-fg-subtle">
@@ -111,6 +124,9 @@ export function SiteDetail({ fs }: { fs: FleetSite }) {
 
       {removing && (
         <RemoveSiteDialog siteName={fs.site.name} onClose={() => setRemoving(false)} />
+      )}
+      {editingBindings && (
+        <EditBindingsDrawer fs={fs} onClose={() => setEditingBindings(false)} />
       )}
     </div>
   );

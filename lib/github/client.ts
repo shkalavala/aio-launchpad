@@ -105,6 +105,27 @@ export async function fetchBlob(repo: RepoCoords, sha: string): Promise<string> 
   return new TextDecoder("utf-8").decode(bytes);
 }
 
+/**
+ * Fetch a single file's current content + blob SHA by path on the connected
+ * ref, via the Contents API. Used by the surgical edit path, which reads the
+ * exact bytes on disk so a patch preserves the file's comments/formatting.
+ */
+export async function fetchFile(
+  repo: RepoCoords,
+  path: string,
+): Promise<{ text: string; sha: string }> {
+  const file = await ghGet<{ content: string; encoding: string; sha: string }>(
+    `${API}/repos/${repo.owner}/${repo.repo}/contents/${encodeURI(path)}?ref=${repo.branch}`,
+    repo.token,
+  );
+  if (file.encoding !== "base64") {
+    throw new Error(`Unexpected file encoding: ${file.encoding}`);
+  }
+  const binary = atob(file.content.replace(/\n/g, ""));
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  return { text: new TextDecoder("utf-8").decode(bytes), sha: file.sha };
+}
+
 export function blobUrl(repo: RepoCoords, path: string): string {
   return `https://github.com/${repo.owner}/${repo.repo}/blob/${repo.branch}/${path}`;
 }
