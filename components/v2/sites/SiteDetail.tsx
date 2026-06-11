@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -16,17 +16,30 @@ import {
   Send,
   Trash2,
   Layers,
+  Clock,
+  FileCode2,
+  ExternalLink,
+  ChevronRight,
+  Package,
+  ArrowUpCircle,
+  AlertTriangle,
+  FileCheck2,
+  RefreshCw,
+  Activity,
+  Radar,
 } from "lucide-react";
 import type { FleetSite, LayerBase, SecretSyncStatus } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 import { useV2Store } from "@/store/useV2Store";
-import { useIsRepoConnected } from "@/store/useRepoConnection";
+import { useIsRepoConnected, useRepoConnection } from "@/store/useRepoConnection";
+import { useObservedSource } from "@/store/useObservedSource";
+import { observedLastApply, OBSERVED_SOURCES } from "@/lib/v2/observedState";
 import { RemoveSiteDialog } from "@/components/v2/sites/RemoveSiteDialog";
 import { EditBindingsDrawer } from "@/components/v2/sites/EditBindingsDrawer";
 import { buildConfigPair } from "@/lib/v2/config";
 import { DiffView } from "@/components/v2/diff/DiffView";
-import { clusterInfo, envTone, regionLabel } from "@/lib/v2/format";
+import { clusterInfo, envTone, healthMeta, regionLabel } from "@/lib/v2/format";
 import { HealthDot } from "@/components/v2/ui/HealthDot";
 import { EVENTS_BY_SITE, type SiteEvent } from "@/lib/fixtures/events";
 import { SECRETS_BY_SITE, kvForSite } from "@/lib/fixtures/secrets";
@@ -130,6 +143,103 @@ export function SiteDetail({ fs }: { fs: FleetSite }) {
 }
 
 // ── Infrastructure ───────────────────────────────────────────────────────────
+
+/** Relative time from an ISO timestamp ("3d ago"). */
+function relTimeFromIso(iso: string): string {
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
+  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1440) return `${Math.round(mins / 60)}h ago`;
+  return `${Math.round(mins / 1440)}d ago`;
+}
+
+/**
+ * Git provenance for this site's DESIRED state plus an honest, source-aware
+ * "last applied" (which is OBSERVED — only a connected source can report it).
+ */
+function DesiredStateCard({ fs }: { fs: FleetSite }) {
+  const connection = useRepoConnection((s) => s.connection);
+  const sourceId = useObservedSource((s) => s.sourceId);
+  const lastApply = observedLastApply(fs, sourceId);
+  const src = OBSERVED_SOURCES[sourceId];
+
+  const srcPath = connection ? `${connection.workspace}/sites/${fs.site.name}.yaml` : null;
+  const blobUrl =
+    connection && srcPath
+      ? `https://github.com/${connection.owner}/${connection.repo}/blob/${connection.branch}/${srcPath}`
+      : null;
+
+  // Most recent commit that moved this site's manifest (fixture-derived).
+  const appliedRev = (EVENTS_BY_SITE[fs.site.name] ?? []).find(
+    (e) => e.commitSha && (e.kind === "manifest-applied" || e.kind === "release-upgraded"),
+  )?.commitSha;
+
+  return (
+    <div className="rounded-lg border border-border bg-surface">
+      <ProvenanceRow icon={FileCode2} label="Source">
+        {blobUrl && srcPath ? (
+          <a
+            href={blobUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 font-mono text-[11px] text-accent hover:underline"
+          >
+            {srcPath}
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        ) : (
+          <span className="text-[12px] text-fg-muted">Resolved from the fleet repo</span>
+        )}
+      </ProvenanceRow>
+
+      <ProvenanceRow icon={Package} label="Desired release">
+        <span className="font-mono text-[12px] text-fg">AIO {fs.runtime.resolvedRelease}</span>
+      </ProvenanceRow>
+
+      <ProvenanceRow icon={Clock} label="Last applied">
+        {lastApply.kind === "value" && lastApply.at ? (
+          <span
+            className="flex items-center gap-2 text-[12px] text-fg"
+            title={src.note}
+          >
+            <span className="h-2 w-2 rounded-full bg-success" />
+            {relTimeFromIso(lastApply.at)}
+            {appliedRev && <span className="font-mono text-[11px] text-fg-subtle">· {appliedRev}</span>}
+            <span className="text-[11px] text-fg-subtle">· {src.short.toLowerCase()}</span>
+          </span>
+        ) : (
+          <span
+            className="flex items-center gap-2 text-[12px] text-fg-subtle"
+            title={src.note}
+          >
+            <span className="h-2 w-2 rounded-full bg-transparent ring-1 ring-inset ring-border-strong" />
+            Not connected
+          </span>
+        )}
+      </ProvenanceRow>
+    </div>
+  );
+}
+
+function ProvenanceRow({
+  icon: Icon,
+  label,
+  children,
+}: {
+  icon: typeof Server;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2 last:border-0">
+      <span className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-fg-subtle">
+        <Icon className="h-3.5 w-3.5" />
+        {label}
+      </span>
+      {children}
+    </div>
+  );
+}
+
 function LayerRow({ name, layer, distro }: { name: string; layer: LayerBase; distro?: string }) {
   const h = healthMeta(layer.health);
   const driftTone = layer.drift === "behind" ? "warning" : layer.drift === "ahead" ? "accent" : "neutral";
@@ -159,6 +269,8 @@ function InfrastructureTab({ fs, advanced }: { fs: FleetSite; advanced: boolean 
 
   return (
     <div className="max-w-3xl space-y-4">
+      <DesiredStateCard fs={fs} />
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Fact label="Region" value={regionLabel(fs.resolvedLocation)} mono={false} />
         <Fact label="Cluster distro" value={cluster.distro} />
@@ -247,7 +359,6 @@ const SECRET_TONE: Record<SecretSyncStatus, "neutral" | "accent" | "success" | "
 };
 
 function WorkloadsTab({ fs }: { fs: FleetSite }) {
-  const release = RELEASES_BY_ID[fs.runtime.resolvedRelease];
   const workloads = fs.site.layers?.workloads ?? [];
   const secrets = SECRETS_BY_SITE[fs.site.name] ?? [];
   const kv = kvForSite(fs.site.name);
@@ -255,26 +366,7 @@ function WorkloadsTab({ fs }: { fs: FleetSite }) {
 
   return (
     <div className="max-w-3xl space-y-5">
-      <section>
-        <div className="mb-2 flex items-center gap-1.5 text-[13px] font-semibold text-fg">
-          <Cpu className="h-4 w-4 text-accent" />
-          AIO components
-          <span className="font-mono text-[12px] font-normal text-fg-subtle">
-            release {fs.runtime.resolvedRelease}
-          </span>
-        </div>
-        <div className="rounded-lg border border-border bg-surface">
-          {release ? (
-            <>
-              <ComponentRow name="Azure IoT Operations" version={release.aioVersion} />
-              <ComponentRow name="cert-manager" version={release.certManagerVersion} />
-              <ComponentRow name="secret-store" version={release.secretStoreVersion} />
-            </>
-          ) : (
-            <div className="px-3 py-2 text-[12px] text-fg-subtle">Release pins unavailable.</div>
-          )}
-        </div>
-      </section>
+      <AioComponentsSection releaseId={fs.runtime.resolvedRelease} />
 
       <section>
         <div className="mb-2 flex items-center justify-between">
@@ -405,6 +497,81 @@ function ComponentRow({
   );
 }
 
+// ── AIO components (release-bundle drill-down) ────────────────────────────────
+function AioComponentsSection({ releaseId }: { releaseId: string }) {
+  const [open, setOpen] = useState(false);
+  const release = RELEASES_BY_ID[releaseId];
+
+  const hasBundle = !!(release?.clusterPin || release?.arcAgentPin || release?.appPins?.length);
+
+  return (
+    <section>
+      <div className="mb-2 flex items-center gap-1.5 text-[13px] font-semibold text-fg">
+        <Cpu className="h-4 w-4 text-accent" />
+        AIO components
+        <span className="font-mono text-[12px] font-normal text-fg-subtle">release {releaseId}</span>
+      </div>
+
+      {release ? (
+        <div className="rounded-lg border border-border bg-surface">
+          <ComponentRow name="Azure IoT Operations" version={release.aioVersion} />
+          <ComponentRow name="cert-manager" version={release.certManagerVersion} />
+          <ComponentRow name="secret-store" version={release.secretStoreVersion} />
+
+          {hasBundle && (
+            <>
+              <div className="border-b border-border bg-bg-subtle px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
+                Release bundle · moves in lockstep
+              </div>
+              {release.clusterPin && (
+                <ComponentRow name="Cluster (AKS Edge Essentials)" version={release.clusterPin} />
+              )}
+              {release.arcAgentPin && (
+                <ComponentRow name="Arc connected-machine agent" version={release.arcAgentPin} />
+              )}
+              {release.appPins?.map((p) => (
+                <ComponentRow key={p.name} name={p.name} version={p.chart} />
+              ))}
+            </>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="flex w-full items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium text-fg-muted hover:text-accent"
+          >
+            <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-90")} />
+            {open ? "Hide" : "Show"} release details
+          </button>
+          {open && (
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border bg-bg-subtle px-3 py-2 text-[11px] text-fg-muted">
+              <DetailKV label="AIO train" value={release.aioTrain} />
+              <DetailKV label="AIO API" value={release.aioApiVersion} />
+              <DetailKV label="ADR API" value={release.adrApiVersion} />
+              <DetailKV label="cert-manager train" value={release.certManagerTrain} />
+              <DetailKV label="secret-store train" value={release.secretStoreTrain} />
+              {release.isDefault && <DetailKV label="Fleet default" value="yes" />}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-border bg-surface px-3 py-2 text-[12px] text-fg-subtle">
+          Release pins unavailable.
+        </div>
+      )}
+    </section>
+  );
+}
+
+function DetailKV({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-fg-subtle">{label}</span>
+      <span className="font-mono text-fg">{value}</span>
+    </div>
+  );
+}
+
 // ── Operations history ───────────────────────────────────────────────────────
 function relTime(minutesAgo: number): string {
   if (minutesAgo < 60) return `${minutesAgo}m ago`;
@@ -422,6 +589,26 @@ const EVENT_TONE: Record<SiteEvent["kind"], "neutral" | "accent" | "success" | "
   "asset-discovered": "neutral",
 };
 
+const EVENT_ICON: Record<SiteEvent["kind"], typeof Server> = {
+  "release-upgraded": ArrowUpCircle,
+  "secret-synced": KeyRound,
+  "secret-error": AlertTriangle,
+  "manifest-applied": FileCheck2,
+  "dataflow-restarted": RefreshCw,
+  "health-changed": Activity,
+  "asset-discovered": Radar,
+};
+
+const EVENT_ICON_TINT: Record<SiteEvent["kind"], string> = {
+  "release-upgraded": "text-accent",
+  "secret-synced": "text-success",
+  "secret-error": "text-danger",
+  "manifest-applied": "text-fg-muted",
+  "dataflow-restarted": "text-warning",
+  "health-changed": "text-warning",
+  "asset-discovered": "text-fg-muted",
+};
+
 function OperationsHistoryTab({ fs }: { fs: FleetSite }) {
   const events = EVENTS_BY_SITE[fs.site.name] ?? [];
   if (!events.length) {
@@ -433,22 +620,30 @@ function OperationsHistoryTab({ fs }: { fs: FleetSite }) {
   }
   return (
     <div className="max-w-3xl space-y-2">
-      {events.map((e, i) => (
-        <div key={i} className="flex items-start gap-3 rounded-lg border border-border bg-surface p-3">
-          <Badge tone={EVENT_TONE[e.kind]} className="mt-0.5 shrink-0">
-            {e.kind.replace(/-/g, " ")}
-          </Badge>
-          <div className="min-w-0 flex-1">
-            <div className="text-[12px] text-fg">{e.message}</div>
-            <div className="mt-0.5 flex items-center gap-2 text-[11px] text-fg-subtle">
-              <span>{relTime(e.minutesAgo)}</span>
-              {e.actor && <span>· {e.actor}</span>}
-              {e.commitSha && <span className="font-mono">· {e.commitSha}</span>}
-              {e.pipelineRunId && <span>· {e.pipelineRunId}</span>}
+      {events.map((e, i) => {
+        const Icon = EVENT_ICON[e.kind];
+        return (
+          <div key={i} className="flex items-start gap-3 rounded-lg border border-border bg-surface p-3">
+            <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border bg-bg-subtle">
+              <Icon className={cn("h-3.5 w-3.5", EVENT_ICON_TINT[e.kind])} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <Badge tone={EVENT_TONE[e.kind]} className="shrink-0">
+                  {e.kind.replace(/-/g, " ")}
+                </Badge>
+                <span className="truncate text-[12px] text-fg">{e.message}</span>
+              </div>
+              <div className="mt-1 flex items-center gap-2 text-[11px] text-fg-subtle">
+                <span>{relTime(e.minutesAgo)}</span>
+                {e.actor && <span>· {e.actor}</span>}
+                {e.commitSha && <span className="font-mono">· {e.commitSha}</span>}
+                {e.pipelineRunId && <span>· {e.pipelineRunId}</span>}
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

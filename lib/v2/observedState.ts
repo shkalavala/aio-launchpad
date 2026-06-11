@@ -61,6 +61,24 @@ export function observedHealth(fs: FleetSite, source: ObservedSourceId): Observe
   return { kind: "value", health: fs.runtime.health };
 }
 
+export interface ObservedLastApply {
+  /** "value" when the source returned a last-applied time; "unknown" otherwise. */
+  kind: "value" | "unknown";
+  /** ISO timestamp the cluster last reconciled to a manifest. */
+  at?: string;
+}
+
+/**
+ * When the cluster last reconciled to a desired manifest. This is an observed
+ * fact (it lives on the cluster, not in git), so it is only available from a
+ * connected source. The simulated source returns the deterministic
+ * `lastDeployAt`; the Azure source returns nothing until the reader is wired.
+ */
+export function observedLastApply(fs: FleetSite, source: ObservedSourceId): ObservedLastApply {
+  if (!OBSERVED_SOURCES[source].connected) return { kind: "unknown" };
+  return { kind: "value", at: fs.runtime.lastDeployAt };
+}
+
 /** Whether observed health/drift is available at all under the active source. */
 export function observedAvailable(source: ObservedSourceId): boolean {
   return OBSERVED_SOURCES[source].connected;
