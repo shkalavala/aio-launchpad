@@ -13,8 +13,9 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useRepoConnection } from "@/store/useRepoConnection";
-import { useBindingStage } from "@/store/useBindingStage";
+import { useChangeStage, stagedSiteKey } from "@/store/useChangeStage";
 import { fetchFile } from "@/lib/github/client";
+import { resolveWriteToken } from "@/lib/github/writeClient";
 import { newSitePath } from "@/lib/v2/authorSite";
 import {
   readLeafBindings,
@@ -45,8 +46,8 @@ export function EditBindingsDrawer({
   onClose: () => void;
 }) {
   const connection = useRepoConnection((s) => s.connection);
-  const stage = useBindingStage((s) => s.stage);
-  const alreadyStaged = useBindingStage((s) => s.staged[fs.site.name]);
+  const stage = useChangeStage((s) => s.stage);
+  const alreadyStaged = useChangeStage((s) => s.staged[stagedSiteKey(fs.site.name)]);
 
   const filePath = connection ? newSitePath(connection.workspace, fs.site.name) : "";
   const inheritedSub = useMemo(() => inheritedSubscription(fs.ancestry), [fs.ancestry]);
@@ -71,7 +72,12 @@ export function EditBindingsDrawer({
     setLoading(true);
     setLoadError(null);
     fetchFile(
-      { owner: connection.owner, repo: connection.repo, branch: connection.branch, token: connection.token },
+      {
+        owner: connection.owner,
+        repo: connection.repo,
+        branch: connection.branch,
+        token: resolveWriteToken(connection.token),
+      },
       filePath,
     )
       .then(({ text }) => {
@@ -128,13 +134,13 @@ export function EditBindingsDrawer({
   function onStage() {
     if (!hasChange) return;
     stage({
-      siteName: fs.site.name,
+      key: stagedSiteKey(fs.site.name),
+      kind: "site-binding",
+      title: fs.site.name,
+      subtitle: "Site Azure bindings",
       filePath,
-      originalText,
-      before,
-      edit,
+      patchedText: patchSiteYaml(originalText, edit),
       deltas,
-      inheritedSubscription: inheritedSub,
     });
     onClose();
   }

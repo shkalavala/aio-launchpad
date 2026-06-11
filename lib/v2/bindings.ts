@@ -8,8 +8,7 @@
 // from a region template; resourceGroup + clusterName are leaf-owned.
 
 import { parseDocument } from "yaml";
-import type { FleetSite, SiteTemplate } from "@/lib/types";
-import type { FileChange } from "@/lib/github/writeClient";
+import type { SiteTemplate } from "@/lib/types";
 
 /** The three editable Azure-binding fields on a leaf site. */
 export interface LeafBindings {
@@ -143,20 +142,4 @@ export function bindingDeltas(
   }
 
   return deltas;
-}
-
-/** Branch name for a (possibly multi-site) binding-edit PR. */
-export function bindingsBranch(): string {
-  const stamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
-  return `launchpad/edit-bindings-${stamp}`;
-}
-
-/** Build the file change for one site's patched YAML. */
-export function buildBindingFileChange(filePath: string, patchedText: string): FileChange {
-  return { path: filePath, content: patchedText };
-}
-
-/** Resolve inherited subscription for a fleet site (convenience over ancestry). */
-export function siteInheritedSubscription(fs: FleetSite): string | undefined {
-  return inheritedSubscription(fs.ancestry);
 }

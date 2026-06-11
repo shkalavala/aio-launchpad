@@ -2,11 +2,13 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, FileCode2, MapPin, Layers } from "lucide-react";
+import { ChevronRight, FileCode2, MapPin, Layers, SlidersHorizontal } from "lucide-react";
 import type { FleetSite, SiteTemplate } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 import { healthMeta, envTone, siteHasDrift, templateRole } from "@/lib/v2/format";
+import { useRepoConnection, useIsRepoConnected } from "@/store/useRepoConnection";
+import { TemplateEditDrawer } from "@/components/v2/sites/TemplateEditDrawer";
 
 /**
  * Inheritance ("inherits:") tree for the connected repo: shows how each site
@@ -85,11 +87,15 @@ function TemplateRow({
   depth,
   isOpen,
   onToggle,
+  onEdit,
+  canEdit,
 }: {
   node: TreeNode;
   depth: number;
   isOpen: boolean;
   onToggle: () => void;
+  onEdit: () => void;
+  canEdit: boolean;
 }) {
   const release = node.template?.properties?.aioRelease;
   const region = node.template?.location;
@@ -102,34 +108,45 @@ function TemplateRow({
       })
     : undefined;
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] hover:bg-bg-subtle"
+    <div
+      className="group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] hover:bg-bg-subtle"
       style={{ paddingLeft: depth * 18 + 8 }}
     >
-      <ChevronRight
-        className={cn("h-3.5 w-3.5 shrink-0 text-fg-subtle transition-transform", isOpen && "rotate-90")}
-      />
-      {region ? (
-        <MapPin className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />
-      ) : (
-        <Layers className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />
-      )}
-      <span className="font-medium text-fg-muted">{node.label}</span>
-      <Badge tone={role?.tier === "subscription" ? "accent" : "neutral"} className="shrink-0">
-        {role?.label ?? "Shared defaults"}
-      </Badge>
-      {region && <span className="font-mono text-[11px] text-fg-subtle">{region}</span>}
-      {release && (
-        <span className="text-[11px] text-fg-subtle">
-          AIO <span className="font-mono text-fg-muted">{release}</span>
+      <button type="button" onClick={onToggle} className="flex flex-1 items-center gap-2 text-left">
+        <ChevronRight
+          className={cn("h-3.5 w-3.5 shrink-0 text-fg-subtle transition-transform", isOpen && "rotate-90")}
+        />
+        {region ? (
+          <MapPin className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />
+        ) : (
+          <Layers className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />
+        )}
+        <span className="font-medium text-fg-muted">{node.label}</span>
+        <Badge tone={role?.tier === "subscription" ? "accent" : "neutral"} className="shrink-0">
+          {role?.label ?? "Shared defaults"}
+        </Badge>
+        {region && <span className="font-mono text-[11px] text-fg-subtle">{region}</span>}
+        {release && (
+          <span className="text-[11px] text-fg-subtle">
+            AIO <span className="font-mono text-fg-muted">{release}</span>
+          </span>
+        )}
+        <span className="ml-auto text-[11px] text-fg-subtle">
+          provides defaults to {siteCount} site{siteCount === 1 ? "" : "s"}
         </span>
+      </button>
+      {canEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          className="inline-flex shrink-0 items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[11px] font-medium text-fg-subtle opacity-0 transition-opacity hover:border-accent/50 hover:text-accent group-hover:opacity-100"
+          title="Edit template defaults"
+        >
+          <SlidersHorizontal className="h-3 w-3" />
+          Edit defaults
+        </button>
       )}
-      <span className="ml-auto text-[11px] text-fg-subtle">
-        provides defaults to {siteCount} site{siteCount === 1 ? "" : "s"}
-      </span>
-    </button>
+    </div>
   );
 }
 
@@ -172,20 +189,39 @@ function Branch({
   depth,
   expanded,
   onToggle,
+  onEdit,
+  canEdit,
 }: {
   node: TreeNode;
   depth: number;
   expanded: Set<string>;
   onToggle: (key: string) => void;
+  onEdit: (t: SiteTemplate) => void;
+  canEdit: boolean;
 }) {
   if (node.kind === "site") return <SiteRow node={node} depth={depth} />;
   const isOpen = expanded.has(node.key);
   return (
     <div>
-      <TemplateRow node={node} depth={depth} isOpen={isOpen} onToggle={() => onToggle(node.key)} />
+      <TemplateRow
+        node={node}
+        depth={depth}
+        isOpen={isOpen}
+        onToggle={() => onToggle(node.key)}
+        onEdit={() => node.template && onEdit(node.template)}
+        canEdit={canEdit}
+      />
       {isOpen &&
         node.children.map((c) => (
-          <Branch key={c.key} node={c} depth={depth + 1} expanded={expanded} onToggle={onToggle} />
+          <Branch
+            key={c.key}
+            node={c}
+            depth={depth + 1}
+            expanded={expanded}
+            onToggle={onToggle}
+            onEdit={onEdit}
+            canEdit={canEdit}
+          />
         ))}
     </div>
   );
@@ -193,6 +229,9 @@ function Branch({
 
 export function InheritanceTree({ fleet }: { fleet: FleetSite[] }) {
   const roots = useMemo(() => buildInheritanceTree(fleet), [fleet]);
+  const canEdit = useIsRepoConnected();
+  const templatePaths = useRepoConnection((s) => s.templatePaths);
+  const [editing, setEditing] = useState<SiteTemplate | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     // Default: expand every template node.
     const set = new Set<string>();
@@ -230,8 +269,24 @@ export function InheritanceTree({ fleet }: { fleet: FleetSite[] }) {
         each site, which inherits and may override them.
       </div>
       {roots.map((node) => (
-        <Branch key={node.key} node={node} depth={0} expanded={expanded} onToggle={onToggle} />
+        <Branch
+          key={node.key}
+          node={node}
+          depth={0}
+          expanded={expanded}
+          onToggle={onToggle}
+          onEdit={setEditing}
+          canEdit={canEdit}
+        />
       ))}
+      {editing && (
+        <TemplateEditDrawer
+          template={editing}
+          relPath={templatePaths[editing.name] ?? `${editing.name}.yaml`}
+          fleet={fleet}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   );
 }
