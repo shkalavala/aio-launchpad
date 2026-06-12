@@ -6,7 +6,9 @@ import { ChevronRight, FileCode2, MapPin, Layers, SlidersHorizontal } from "luci
 import type { FleetSite, SiteTemplate } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
-import { envTone, siteHasDrift, templateRole } from "@/lib/v2/format";
+import { envTone, templateRole } from "@/lib/v2/format";
+import { observedDrift } from "@/lib/v2/observedState";
+import { useObservedSource } from "@/store/useObservedSource";
 import { useRepoConnection, useIsRepoConnected } from "@/store/useRepoConnection";
 import { TemplateEditDrawer } from "@/components/v2/sites/TemplateEditDrawer";
 import { HealthDot } from "@/components/v2/ui/HealthDot";
@@ -154,7 +156,8 @@ function TemplateRow({
 function SiteRow({ node, depth }: { node: TreeNode; depth: number }) {
   const fs = node.fs!;
   const env = fs.runtime.environment;
-  const drift = siteHasDrift(fs);
+  const sourceId = useObservedSource((s) => s.sourceId);
+  const drift = observedDrift(fs, sourceId);
   return (
     <Link
       href={`/v2/sites/view/?site=${encodeURIComponent(fs.site.name)}`}
@@ -170,7 +173,7 @@ function SiteRow({ node, depth }: { node: TreeNode; depth: number }) {
       <span className="text-[11px] text-fg-subtle">
         AIO <span className="font-mono text-fg-muted">{fs.runtime.resolvedRelease}</span>
       </span>
-      {drift && (
+      {drift.kind === "value" && drift.drifted && (
         <Badge tone="danger" className="shrink-0">
           Drift
         </Badge>

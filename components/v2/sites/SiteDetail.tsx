@@ -359,7 +359,6 @@ const SECRET_TONE: Record<SecretSyncStatus, "neutral" | "accent" | "success" | "
 };
 
 function WorkloadsTab({ fs }: { fs: FleetSite }) {
-  const workloads = fs.site.layers?.workloads ?? [];
   const secrets = SECRETS_BY_SITE[fs.site.name] ?? [];
   const kv = kvForSite(fs.site.name);
   const res = siteResources(fs);
@@ -426,24 +425,6 @@ function WorkloadsTab({ fs }: { fs: FleetSite }) {
           What this site collects and where it sends. Add or change flows and assets in DOE; Launchpad
           rolls the resulting config across the fleet.
         </p>
-      </section>
-
-      <section>
-        <div className="mb-2 flex items-center gap-1.5 text-[13px] font-semibold text-fg">
-          <Boxes className="h-4 w-4 text-accent" />
-          Connectors &amp; workloads
-        </div>
-        {workloads.length ? (
-          <div className="rounded-lg border border-border bg-surface">
-            {workloads.map((w) => (
-              <ComponentRow key={w.name} name={w.name} version={w.chart} health={w.health} />
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-lg border border-dashed border-border px-3 py-3 text-[12px] text-fg-subtle">
-            No customer workloads observed on this cluster.
-          </div>
-        )}
       </section>
 
       <section>

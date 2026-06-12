@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/v2/ui/PageHeader";
 import { useV2Store } from "@/store/useV2Store";
+import { useObservedSource } from "@/store/useObservedSource";
+import { observedAvailable, OBSERVED_SOURCES } from "@/lib/v2/observedState";
 import {
   APPROVAL_STAGES,
   KIND_META,
@@ -39,6 +41,8 @@ export function OperationsView() {
   const driftChecked = useV2Store((s) => s.driftChecked);
   const runDriftCheck = useV2Store((s) => s.runDriftCheck);
   const reconcileDrift = useV2Store((s) => s.reconcileDrift);
+  const sourceId = useObservedSource((s) => s.sourceId);
+  const observedOk = observedAvailable(sourceId);
 
   const awaitingApproval = deployments.filter(
     (d) => d.approval && approvalPending(d.approval.status),
@@ -96,9 +100,14 @@ export function OperationsView() {
         <Section
           icon={<Search className="h-4 w-4 text-accent" />}
           title="Drift & reconcile"
-          count={driftChecked ? driftRecords.length : undefined}
+          count={observedOk && driftChecked ? driftRecords.length : undefined}
         >
-          {!driftChecked ? (
+          {!observedOk ? (
+            <div className="rounded-md border border-border bg-bg-subtle px-3 py-2.5 text-[12px] text-fg-muted">
+              {OBSERVED_SOURCES[sourceId].note} Drift compares deployed cluster state against git, so
+              it needs a connected observed-state source.
+            </div>
+          ) : !driftChecked ? (
             <div className="flex items-center justify-between rounded-md border border-border bg-bg-subtle px-3 py-2.5 text-[12px] text-fg-muted">
               <span>No drift check has run this session. Drift is computed on demand, never watched.</span>
               <Button size="sm" variant="subtle" onClick={runDriftCheck}>

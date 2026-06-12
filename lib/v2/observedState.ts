@@ -1,6 +1,7 @@
 "use client";
 
 import type { FleetSite, HealthStatus } from "@/lib/types";
+import { siteHasDrift } from "@/lib/v2/format";
 
 /**
  * Observed state = facts about what is ACTUALLY running on a site's cluster
@@ -77,6 +78,24 @@ export interface ObservedLastApply {
 export function observedLastApply(fs: FleetSite, source: ObservedSourceId): ObservedLastApply {
   if (!OBSERVED_SOURCES[source].connected) return { kind: "unknown" };
   return { kind: "value", at: fs.runtime.lastDeployAt };
+}
+
+export interface ObservedDrift {
+  /** "value" when the source could compare; "unknown" when not connected. */
+  kind: "value" | "unknown";
+  /** True when the cluster diverges from git. Only meaningful when kind==="value". */
+  drifted?: boolean;
+}
+
+/**
+ * Whether a site's deployed/cluster state diverges from git. Drift is an
+ * OBSERVED fact — knowing it requires reading what is actually deployed, which
+ * only a connected source can do. The simulated source reports the fixture
+ * drift; the Azure source (not wired) can't compare, so it returns "unknown".
+ */
+export function observedDrift(fs: FleetSite, source: ObservedSourceId): ObservedDrift {
+  if (!OBSERVED_SOURCES[source].connected) return { kind: "unknown" };
+  return { kind: "value", drifted: siteHasDrift(fs) };
 }
 
 /** Whether observed health/drift is available at all under the active source. */

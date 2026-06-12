@@ -6,7 +6,9 @@ import type { FleetSite } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 import { useV2Store } from "@/store/useV2Store";
-import { envTone, clusterInfo, siteHasDrift } from "@/lib/v2/format";
+import { useObservedSource } from "@/store/useObservedSource";
+import { envTone, clusterInfo } from "@/lib/v2/format";
+import { observedDrift } from "@/lib/v2/observedState";
 import { HealthDot } from "@/components/v2/ui/HealthDot";
 
 /**
@@ -16,9 +18,10 @@ import { HealthDot } from "@/components/v2/ui/HealthDot";
  */
 export function SiteCard({ fs }: { fs: FleetSite }) {
   const advanced = useV2Store((s) => s.mode === "advanced");
+  const sourceId = useObservedSource((s) => s.sourceId);
   const env = fs.runtime.environment;
   const cluster = clusterInfo(fs);
-  const drift = siteHasDrift(fs);
+  const drift = observedDrift(fs, sourceId);
 
   return (
     <Link
@@ -56,7 +59,7 @@ export function SiteCard({ fs }: { fs: FleetSite }) {
         </div>
       </div>
 
-      {drift && (
+      {drift.kind === "value" && drift.drifted && (
         <Badge tone="danger" className="self-start">
           <GitCompareArrows className="h-3 w-3" />
           Drift

@@ -90,10 +90,12 @@ export default function V2DashboardPage() {
         <StatCard
           icon={<RadioTower className="h-4 w-4" />}
           label="Drift"
-          value={driftChecked ? driftRecords.length : "—"}
-          tone={driftChecked && driftRecords.length > 0 ? "danger" : "neutral"}
+          value={!observedOk ? "—" : driftChecked ? driftRecords.length : "—"}
+          tone={observedOk && driftChecked && driftRecords.length > 0 ? "danger" : "neutral"}
         >
-          <span className="text-fg-subtle">{driftChecked ? "checked" : "not checked"}</span>
+          <span className="text-fg-subtle">
+            {!observedOk ? "Not connected" : driftChecked ? "checked" : "not checked"}
+          </span>
         </StatCard>
       </div>
 
