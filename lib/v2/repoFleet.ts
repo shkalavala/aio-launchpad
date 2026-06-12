@@ -12,6 +12,7 @@
 
 import { parse as parseYaml } from "yaml";
 import { listTree, fetchBlob, type RepoCoords } from "@/lib/github/client";
+import { resolveWriteToken } from "@/lib/github/writeClient";
 import type {
   AioReleaseId,
   FleetSite,
@@ -34,7 +35,13 @@ export interface RepoConnection {
 
 /** Coords for the github client, carrying the optional token. */
 function coords(conn: RepoConnection): RepoCoords {
-  return { owner: conn.owner, repo: conn.repo, branch: conn.branch, token: conn.token };
+  // Authenticate reads the same way writes do: explicit connection token, else
+  // the dev env token (NEXT_PUBLIC_GH_TOKEN). Anonymous reads against a public
+  // fork hit GitHub's per-IP rate limit (403) intermittently, which would
+  // silently drop sites from the fleet; an authenticated read has a much higher
+  // budget and stays stable.
+  const token = resolveWriteToken(conn.token) || undefined;
+  return { owner: conn.owner, repo: conn.repo, branch: conn.branch, token };
 }
 
 /** "shared/germany.yaml" -> "germany"; "base-site.yaml" -> "base-site". */
